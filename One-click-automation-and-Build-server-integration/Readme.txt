@@ -21,6 +21,6 @@ Features:
 - Document and report on changes
 - Create deployment package
 - Archive all output files in a central folder
-- Audit senstive tables with DML triggers
+- Audit sensitive tables with DML triggers
 - Customizable data sources
 - Support for advanced configuration through individual step project files
