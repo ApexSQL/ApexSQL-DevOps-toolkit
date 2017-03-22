@@ -1003,6 +1003,9 @@ function Invoke-ApexSqlTestStep
 		[ApexSqlDatabaseConnection] $Database,
 
 		[Parameter(Mandatory = $false)]
+		[switch] $InstallSqlCop,
+
+		[Parameter(Mandatory = $false)]
 		[bool] $StopOnFail = $true,
 
 		[Parameter(Mandatory = $false)]
@@ -1025,6 +1028,11 @@ function Invoke-ApexSqlTestStep
             return
         }
     }
+	$sqlCop = ""
+	if($InstallSqlCop)
+	{
+		$sqlCop = " /install_sqlcop"
+	}
 	$project = ""
 	if ($ProjectFile)
 	{
@@ -1037,7 +1045,7 @@ function Invoke-ApexSqlTestStep
 	}
     $testReport = "$($Options.OutputLocation)\$($Database.ConnectionName)_Test_TestResults.xml"
 	$toolParameters = "$($Database.AsParameters()) /install_tsqlt" +
-    " /or:""$testReport""$project$additional /v /f"
+    " /or:""$testReport""$sqlCop$project$additional /v /f"
 	$params = @{
 		ToolName = "Unit Test"
 		ToolParameters = $toolParameters 

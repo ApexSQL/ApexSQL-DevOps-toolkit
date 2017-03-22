@@ -3,6 +3,15 @@ Release notes: this document describes changes and enhancements made to ApexSQL 
 Best viewed with 'WORD WRAP' unchecked
 
 --------------------------------------------------------------------------------------------------
+ Release: 	2017.01.0002
+ Date:		March 22, 2017
+--------------------------------------------------------------------------------------------------
+
+Enhancements:
+
+- Optional switch added to the Invoke-ApexSqlTestStep cmdlet for installing SQL Cop predefined tests [-InstallSqlCop]
+
+--------------------------------------------------------------------------------------------------
  Release: 	2017.01.0001
  Date:		March 17, 2017
 --------------------------------------------------------------------------------------------------
