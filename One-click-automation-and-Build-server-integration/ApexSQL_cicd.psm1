@@ -766,7 +766,7 @@ function Invoke-ApexSqlDocumentStep
 		$additional = " $AdditionalOptions"
 	}
     $reportName = "$($Database.ConnectionName)_Document_documentation"
-	$toolParameters = "$($Database.AsParameters("doc")) /of:$($PsCmdlet.ParameterSetName) /od:""$($Options.OutputLocation)""" +
+	$toolParameters = "$($Database.AsParameters("doc")) /ot:$($PsCmdlet.ParameterSetName) /od:""$($Options.OutputLocation)""" +
 	" /on:$reportName$project$additional /v /f"
 	$params = @{
 		ToolName = "Doc"
