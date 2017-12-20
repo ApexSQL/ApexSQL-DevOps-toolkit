@@ -20,20 +20,21 @@ try
 {
 	$modulesPath = "C:\Program Files\ApexSQL\ApexSQL CICD toolkit\Modules"
 	$modulesPathRegex = "C:\\Program Files\\ApexSQL\\ApexSQL CICD toolkit\\Modules"
-	$cicdPath = "C:\Program Files\ApexSQL\ApexSQL CICD toolkit\Modules\ApexSQL_cicd"
+	$cicdPath = "C:\Program Files\ApexSQL\ApexSQL CICD toolkit\Modules\ApexSQL_CICD"
 	if(-not (Test-Path $cicdPath))
 	{
 		New-Item -Path $cicdPath -ItemType Directory -Force | Out-Null
 	}
-	if ((-not (Test-Path "$PSScriptRoot\ApexSQL_cicd.psd1")) -or (-not (Test-Path "$PSScriptRoot\ApexSQL_cicd.psm1")))
+	if ((-not (Test-Path "$PSScriptRoot\ApexSQL_CICD.psd1")) -or (-not (Test-Path "$PSScriptRoot\ApexSQL_CICD.psm1")))
 	{
-		Write-Host "ApexSQL_cicd.psd1 or ApexSQL_cicd.psm1 files are not found in directory $PSScriptRoot.`r`n"
+		Write-Host "ApexSQL_CICD.psd1 or ApexSQL_cicd.psm1 files are not found in directory $PSScriptRoot.`r`n"
 		Write-Host "Please download latest version of the installation files and run Install.ps1 again`r`n"
 		pause
 		exit
 	}
-	Copy-Item -Path "$PSScriptRoot\ApexSQL_cicd.psd1" -Destination $cicdPath -Force
-	Copy-Item -Path "$PSScriptRoot\ApexSQL_cicd.psm1" -Destination $cicdPath -Force
+	Copy-Item -Path "$PSScriptRoot\ApexSQL_CICD.psd1" -Destination $cicdPath -Force
+	Copy-Item -Path "$PSScriptRoot\ApexSQL_CICD.psm1" -Destination $cicdPath -Force
+	Copy-Item -Path "$PSScriptRoot\Package.nuspec" -Destination $cicdPath -Force
 
 	$currentValue = [Environment]::GetEnvironmentVariable("PSModulePath")
 	if ($currentValue -notmatch $modulesPathRegex)
