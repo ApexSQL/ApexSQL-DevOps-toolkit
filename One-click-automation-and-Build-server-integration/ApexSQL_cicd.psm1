@@ -849,7 +849,7 @@ function Start-ApexSQLTool
 	$output = Invoke-Expression -Command ("& `"$($toolLocation)`" $ToolParameters")
 	Out-File -FilePath $Options.OutputLogFile -InputObject $output -Append
 	
-	if ($lastExitCode -ne 0 -and ($lastExitCode -ne 102 -and $ToolName -eq "Generate")) 
+	if ($lastExitCode -ne 0 -and -not ($lastExitCode -eq 104 -and $ToolName -eq "Generate")) 
 	{
 		$Options.FailedSteps += @("ApexSQL $ToolName")
         $Options.ErrorCodes += @($lastExitCode)
@@ -979,57 +979,79 @@ function PackageTheSpecification()
         $fileNames += "`r`n`t`t- $($file.Name)"
     }
 
-    $msg = "`tStarted creating the package ...`r`n"
-    Out-File -FilePath $Options.OutputLogFile -InputObject $msg -Append
-
-    DisplayCommandLineArgs
-    if ($Options.Result -eq "Failure")
+    if ($content -ne $null)
     {
-        if ($PSCmdlet.MyInvocation.ExpectingInput)
+        $msg = "`tStarted creating the package ...`r`n"
+        Out-File -FilePath $Options.OutputLogFile -InputObject $msg -Append
+
+        DisplayCommandLineArgs
+        if ($Options.Result -eq "Failure")
         {
-            return $Options
+            if ($PSCmdlet.MyInvocation.ExpectingInput)
+            {
+                return $Options
+            }
+            else
+            {
+                return
+            }
         }
-        else
+
+        $logContent = $null
+        try
         {
+            #Remove log file (and store its content to temp variable in order to get back the content to log file)
+            $logContent = Get-Content $Options.OutputLogFile -Raw 
+            Remove-Item $Options.OutputLogFile
+
+            #Execute packing
+            &$nugetExe pack $Options.OutputLocation -Properties id=$nugetId -Properties version=$nugetVersion -Properties authors=$nugetAuthors -Properties owners=$nugetOwners -Properties description=$files -Properties releaseNotes=$nugetReleaseNotes -OutputDirectory $Options.OutputLocation
+    
+            #Get back log content to log file
+            $logContent > $Options.OutputLogFile
+            $logContent = $null
+        
+            $msg = "`tPackage successfully created."
+            Out-File -FilePath $Options.OutputLogFile -InputObject $msg -Append
+            $msg = "`r`n`tContent of this package version:" + $fileNames
+            Out-File -FilePath $Options.OutputLogFile -InputObject $msg -Append
+        }
+        catch
+        {
+            #Get back log content to log file
+            $logContent > $Options.OutputLogFile
+            $logContent = $null
+
+            $error = "Creating the package failed.`r`n"
+            Write-Warning -Message $error
+            Out-File -FilePath $Options.OutputLogFile -InputObject "`t$($error)" -Append
+        
+            if ($LASTERRORCODE -eq $null -and $LASTERRORCODE -lt 0)
+            {
+                $lastReturnCode = 1
+            }
+            $Options.ErrorCodes += $lastReturnCode
+            $Options.FailedSteps += @("ApexSQL Package")
+            $Options.Result = "Failure"
             return
         }
     }
 
-    $logContent = $null
-    try
+    else
     {
-        #Remove log file (and store its content to temp variable in order to get back the content to log file)
-        $logContent = Get-Content $Options.OutputLogFile -Raw 
-        Remove-Item $Options.OutputLogFile
-
-        #Execute packing
-        &$nugetExe pack $Options.OutputLocation -Properties id=$nugetId -Properties version=$nugetVersion -Properties authors=$nugetAuthors -Properties owners=$nugetOwners -Properties description=$files -Properties releaseNotes=$nugetReleaseNotes -OutputDirectory $Options.OutputLocation
-    
-        #Get back log content to log file
-        $logContent > $Options.OutputLogFile
-        $logContent = $null
-        
-        $msg = "`tPackage successfully created."
-        Out-File -FilePath $Options.OutputLogFile -InputObject $msg -Append
-        $msg = "`r`n`tContent of this package version:" + $fileNames
-        Out-File -FilePath $Options.OutputLogFile -InputObject $msg -Append
-    
-    }
-    catch
-    {
-        #Get back log content to log file
-        $logContent > $Options.OutputLogFile
-        $logContent = $null
-
-        $error = "Creating the package failed:`r`n"
+        $error = "Creating the package failed. Package can not be empty.`r`n"
         Write-Warning -Message $error
-        Out-File -FilePath $Options.OutputLogFile -InputObject "`t$($error)" -Append 
-        $Options.ErrorCodes += @($LASTERRORCODE)
+        Out-File -FilePath $Options.OutputLogFile -InputObject "`t$($error)" -Append
+        $lastReturnCode = $LASTERRORCODE
+        if ($LASTERRORCODE -eq $null -and $LASTERRORCODE -lt 0)
+        {
+            $lastReturnCode = 1
+        }
+        $Options.ErrorCodes += $lastReturnCode
         $Options.FailedSteps += @("ApexSQL Package")
         $Options.Result = "Failure"
         return
     }
-
     
 
     #Remove templete .nuspec file
@@ -1113,7 +1135,12 @@ function PublishPackage()
             $error = "`tPackage publishing failed: `r`n`t`t>>$($_.Exception.Message)<<"
             Write-Warning -Message $error
             Out-File -FilePath $Options.OutputLogFile -InputObject $error -Append 
-            $Options.ErrorCodes += @($LastExitCode)
+            $lastReturnCode = $LastExitCode
+            if ($LastExitCode -ne 0 -and $LastExitCode -lt 0)
+            {
+                $lastReturnCode = 1
+            }
+            $Options.ErrorCodes += $lastReturnCode
             $Options.FailedSteps += @("ApexSQL Package")
             $Options.Result = "Failure"
         }
@@ -1439,13 +1466,13 @@ function Invoke-ApexSqlPopulateStep
     }
 
     #Output files names
-    $scriptName = "Populate_$($Database.ConnectionName)_PopulateScript.sql"
+    $scriptName = "$($Options.OutputLocation)\Populate_$($Database.ConnectionName)_PopulateScript.sql"
 
     #Full tool parameters
     $outScript = ""
     if (!$NoScript)
     {
-        $outScript = "/ot:SQL /on:""$($Options.OutputLocation)\$($scriptName)"""
+        $outScript = "/ot:SQL /on:""$($scriptName)"" /eae"
     }
 	$toolParameters = "$($Database.AsParameters()) /r:$($RowCount)$fillEmpty$project$additional $($outScript) /v /f "
 	$params = @{
@@ -1457,6 +1484,13 @@ function Invoke-ApexSqlPopulateStep
 
     #Execute the tool
 	Start-ApexSQLTool @params | Out-Null
+
+    if ($LASTEXITCODE -eq 104)
+    {
+        $msg = "There are no empty tables in database: $($Database.Database)"
+        Write-Warning -Message $msg
+    }
+
     if ($PSCmdlet.MyInvocation.ExpectingInput)
     {
         return $Options
@@ -1912,18 +1946,7 @@ function Invoke-ApexSqlPackageStep
     RemoveSnapshots -Location "$($Options.OutputLocation)"
     CleanUp
     PackageTheSpecification
-    if ($Options.Result -eq "Failure")
-    {
-        if ($PSCmdlet.MyInvocation.ExpectingInput)
-        {
-            return $Options
-        }
-        else
-        {
-            return
-        }
-    }
-    if ($Publish)
+    if ($Publish -and $Options.Result -ne "Failure")
     {
         PublishPackage -Destination $Options.OutputLocation
     }
@@ -2000,19 +2023,19 @@ function Invoke-ApexSqlNotifyStep
     $pipelineCompleted = Get-Date -Format "MM/dd/yyyy HH:mm:ss"
 
     $pipelineResultReport = @{$true = "Success"; $false = "Failure" }[$pipelineResult]
-    $log = "Pipeline name: $($Options.PipelineName)`r`n`r`n"
+    $log = "Name: $($Options.PipelineName)`r`n`r`n"
     $pipelineReturnCode = @{$true = "0"; $false = "1" }[$pipelineResult]
     
-    $log += "Pipeline started at $($pipelineStarted)`r`n"
-    $log += "Pipeline completed at $($pipelineCompleted) with result: $($pipelineResultReport)`r`n"
-    $log += "Pipeline return code is: $($pipelineReturnCode)`r`n`r`n"
+    $log += "Started at $($pipelineStarted)`r`n"
+    $log += "Completed at $($pipelineCompleted) with result: $($pipelineResultReport)`r`n"
+    $log += "Return code is: $($pipelineReturnCode)`r`n`r`n"
 
     if ($Options.FailedSteps -ne $null)
     {
-        $log += "Failed step:`r`n $($Options.FailedSteps) with error code: $($Options.ErrorCodes).`r`n`r`n" 
+        $log += "Failed step:`r`n $($Options.FailedSteps) with error code: $($Options.ErrorCodes)`r`n`r`n" 
     }
 
-    $log += "Pipeline output files path: $($Options.OutputLocation)`r`n`r`n"
+    $log += "Output files path: $($Options.OutputLocation)`r`n`r`n"
     
     
     
@@ -2025,7 +2048,7 @@ function Invoke-ApexSqlNotifyStep
     }
 
     $log += "`r`n==========`r`n
-            For more details check the $($Options.PipelineName).log file in attachment."
+            For more details check the $($Options.PipelineName)_job_summary.log file in attachment."
     
 
     $Body = "<HTML><HEAD><META http-equiv=""Content-Type"" content=""text/html; charset=iso-8859-1"" /><TITLE></TITLE></HEAD><BODY><p>"
@@ -2097,7 +2120,7 @@ function Invoke-ApexSqlNotifyStep
         #Play beep sound  
         [System.Media.SystemSounds]::Beep.Play()   
     }
-    #Write-Host($log)
+    Write-Host("`r`n`r`n-----`r`n`r`n`r`n$($log)")
 }
 
 function Invoke-ApexSqlDocumentStep
