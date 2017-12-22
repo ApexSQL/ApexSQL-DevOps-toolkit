@@ -47,7 +47,7 @@ Invoke-ApexSqlPopulateStep -Options $options -Database $dsQA -RowCount 1000 -Fil
 #Invoke-ApexSqlAuditStep -Options $options -Database $dsQA | Out-Null
 
 #Review step
-Invoke-ApexSqlReviewStep -Options $options -Database $dsQA -ProjectFile "ApexSQL (CS).axrb" -Passed -Failed -Errors | Out-Null
+Invoke-ApexSqlReviewStep -Options $options -Database $dsQA -ProjectFile "Review_RuleBase.axrb" -Passed -Failed -Errors | Out-Null
 
 #Test step
 Invoke-ApexSqlTestStep -Options $options -Database $dsQA -InstallSqlCop | Out-Null
