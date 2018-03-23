@@ -1162,11 +1162,17 @@ function ExtractNupkg ()
 
     $msg = "`r`n`t----------`r`n`r`n`tStarted Extracting the package ...`r`n"
     Out-File -FilePath $Options.OutputLogFile -InputObject $msg -Append
+
+    if (!$Source -or $Source -eq $null -or $Source -eq "")
+    {
+        $Source = "$($OutputLocation)\\"
+    }
+
     if (-Not $Version)
     {
         try
         {
-            &$nuget install $NugetID -Output $OutputLocation -Source $Source >> $Options.OutputLogFile
+            &$nuget install $NugetID -Output $OutputLocation -Source "$($Source)" >> $Options.OutputLogFile
             $msg = "`r`n`tPackage successfully extracted.`r`n`r`n`t----------`r`n"
             Out-File -FilePath $Options.OutputLogFile -InputObject $msg -Append
         }
@@ -2196,7 +2202,7 @@ function Invoke-ApexSqlDocumentStep
         $reportName = "Document_$($dbName)_Documentation.$($PsCmdlet.ParameterSetName)"
         if ($Database -eq $null)
         {
-            $sourceSwitches = "/dbsnp:$($Options.OutputLocation)\Db_SnapShot.axsnp" 
+            $sourceSwitches = "/dbsnp:""$($Options.OutputLocation)\Db_SnapShot.axsnp""" 
         }
         else
         {
@@ -2206,7 +2212,7 @@ function Invoke-ApexSqlDocumentStep
     else
     {
         $reportName = "Document_Differential_Documentation.$($PsCmdlet.ParameterSetName)"
-        $sourceSwitches  = "/dbsnp:$($Options.OutputLocation)\Db_SnapShot_Diff.axdsn"
+        $sourceSwitches  = "/dbsnp:""$($Options.OutputLocation)\Db_SnapShot_Diff.axdsn"""
     }
 
     #Full tool parameters $($Database.AsParameters("doc"))
