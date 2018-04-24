@@ -41,7 +41,7 @@ $dsQA = New-ApexSqlDatabaseConnection -ConnectionName "qaDB_dest" -Server "192.1
 Invoke-ApexSqlBuildStep -Options $options -Source $dsSC -Database $dsQA | Out-Null
 
 #Populate step
-Invoke-ApexSqlPopulateStep -Options $options -Database $dsQA -RowCount 1000 -FillOnlyEmptyTables $true -NoScripts | Out-Null
+Invoke-ApexSqlPopulateStep -Options $options -Database $dsQA -RowCount 1000 -FillOnlyEmptyTables $true | Out-Null
 
 #Audit step
 #Invoke-ApexSqlAuditStep -Options $options -Database $dsQA | Out-Null

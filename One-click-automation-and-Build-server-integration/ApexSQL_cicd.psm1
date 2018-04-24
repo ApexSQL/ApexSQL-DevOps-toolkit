@@ -1005,7 +1005,7 @@ function PackageTheSpecification()
             Remove-Item $Options.OutputLogFile
 
             #Execute packing
-            &$nugetExe pack $Options.OutputLocation -Properties id=$nugetId -Properties version=$nugetVersion -Properties authors=$nugetAuthors -Properties owners=$nugetOwners -Properties description=$files -Properties releaseNotes=$nugetReleaseNotes -OutputDirectory $Options.OutputLocation
+            &$nugetExe pack "$($Options.OutputLocation)" -Properties id=$nugetId -Properties version=$nugetVersion -Properties authors=$nugetAuthors -Properties owners=$nugetOwners -Properties description=$files -Properties releaseNotes=$nugetReleaseNotes -OutputDirectory "$($Options.OutputLocation)"
     
             #Get back log content to log file
             $logContent > $Options.OutputLogFile
@@ -1576,7 +1576,7 @@ function Invoke-ApexSqlAuditStep
     $outReport = ""
     if (!$NoReport)
     {
-        $outReport = "/sr /rf:pdf /or:$($reportName)"
+        $outReport = "/sr /rf:pdf /or:""$($reportName)"""
     }
     $toolParameters = "$($Database.AsParameters())$project$additional $outReport /ai:a /at /v /f"
     $params = @{
@@ -1689,7 +1689,7 @@ function Invoke-ApexSqlReviewStep
     $outReport = ""
     if (!$NoReport)
     {
-        $outReport = "/ot:h /on:$($reportName)"
+        $outReport = "/ot:h /on:""$($reportName)"""
     }
 	$toolParameters = " $($Database.AsParameters()) $($additional) /rb:""$($ProjectFile)"" $($outReport) $($reportContents) /v /f"
 	$params = @{
