@@ -1285,6 +1285,9 @@ function Invoke-ApexSqlBuildStep
 		[string] $AdditionalOptions,
 
         [Parameter(Mandatory = $false)]
+		[switch] $ExcludeStaticData,
+
+        [Parameter(Mandatory = $false)]
         [switch] $NoScript,
 
         [Parameter(Mandatory = $false)]
@@ -1348,6 +1351,12 @@ function Invoke-ApexSqlBuildStep
 		$additional = " $AdditionalOptions"
 	}
 
+    $static_data = " /isd "
+    if ($ExcludeStaticData)
+    {
+        $static_data = ""
+    }
+
     #Configure Source parameters
     $sourceType = "sc"
     if ($Source -ne $null)
@@ -1387,7 +1396,7 @@ function Invoke-ApexSqlBuildStep
     }
     $toolParameters = 
     @{$true = "/source_type:$sourceType $sourceParams /output_type:$databaseType $databaseParams "; $false = " $project "}[!$ProjectFile] + 
-	    " /drop_if_exists $additional $drop  $outScript  /script_permissions /v /f"
+	    " /drop_if_exists $additional $drop  $outScript  $static_data /script_permissions /v /f"
 	$params = @{
 		ToolName = "Build"
 		ToolParameters = $toolParameters 
