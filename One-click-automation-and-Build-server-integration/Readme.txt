@@ -3,8 +3,8 @@ Release notes: this document describes changes and enhancements made to ApexSQL 
 Best viewed with 'WORD WRAP' unchecked
 
 --------------------------------------------------------------------------------------------------
-Release: 2017.02.0005
-Date: April 26, 2018
+Release: 	2017.02.0005
+Date: 		April 26, 2018
 --------------------------------------------------------------------------------------------------
 
 Fixes:
@@ -13,8 +13,8 @@ Fixes:
 - "Bad format of switch: on" error is encountered when execution starts for the Review step
 
 --------------------------------------------------------------------------------------------------
-Release: 2017.02.0004
-Date: December 20, 2017
+Release: 	2017.02.0004
+Date: 		December 20, 2017
 --------------------------------------------------------------------------------------------------
 
 Enhancements:
