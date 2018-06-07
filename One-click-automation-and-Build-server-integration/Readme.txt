@@ -1,7 +1,5 @@
 Release notes: this document describes changes and enhancements made to ApexSQL CI/CD toolkit PowerShell module
 
-Best viewed with 'WORD WRAP' unchecked
-
 --------------------------------------------------------------------------------------------------
 Release: 	2017.02.0005
 Date: 		April 26, 2018
