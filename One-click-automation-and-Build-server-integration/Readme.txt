@@ -14,7 +14,6 @@ Changes:
 - Optional -FillOnlyEmptyTables switch for the Invoke-ApexSqlPopulateStep cmdlet is replaced with the -FillAllTables switch
 - The switch -FillOnlyEmptyTables for the Invoke-ApexSqlPopulateStep cmdlet is now set as built-in default
 
-
 --------------------------------------------------------------------------------------------------
 Release: 	2017.02.0005
 Date: 		April 26, 2018
