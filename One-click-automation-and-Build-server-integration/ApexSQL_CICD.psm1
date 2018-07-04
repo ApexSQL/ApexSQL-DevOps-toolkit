@@ -73,7 +73,10 @@ function New-ApexSqlDatabaseConnection
         [string] $UserName,
 
         [Parameter(Mandatory = $false, ParameterSetName = "credentials")]
-        [string] $Password
+        [string] $Password,
+
+        [Parameter(Mandatory = $false, ParameterSetName = "credentials")]
+        [string] $PasswordFile
     )
     $connection = New-Object -TypeName ApexSqlDatabaseConnection
     $connection.ConnectionName = $ConnectionName
@@ -81,7 +84,7 @@ function New-ApexSqlDatabaseConnection
     $connection.Database = $Database
     $connection.WindowsAuthentication = $WindowsAuthentication
     $connection.UserName = $UserName
-    $connection.Password = $Password
+    $connection.Password = (&{If(!$WindowsAuthentication -and !$Password) {Get-Pass -PasswordFile $PasswordFile} Else {$Password}})
     return $connection
 }
 
@@ -164,6 +167,9 @@ function New-ApexSQLSource
         [string] $Password,
 
         [Parameter(Mandatory = $false)]
+        [string] $PasswordFile,
+
+        [Parameter(Mandatory = $false)]
         [string] $Project,
 
         [Parameter(Mandatory = $false)]
@@ -198,7 +204,10 @@ function New-ApexSQLSource
      )
 
      $global:scRepoConnectionName = $ConnectionName
-
+     if (!$Password -and $Source_Type -ne "nuget")
+     {
+        $Password = Get-Pass -PasswordFile $PasswordFile
+     }
     if ($Source_Type -ne $null)
     {
         switch($Source_Type)
@@ -490,6 +499,9 @@ function New-ApexSQLNotificationSettings
         [Parameter(Mandatory = $false)]
         [string] $Password,
 
+        [Parameter(Mandatory = $false)]
+        [string] $PasswordFile,
+
         [Parameter(Mandatory = $true)]
         [string] $SmtpServer,
 
@@ -499,6 +511,8 @@ function New-ApexSQLNotificationSettings
         [Parameter(Mandatory = $false)]
         [switch] $UseSSL
     )
+
+    $Password = (&{If(!$Password) { (Get-Pass -PasswordFile $PasswordFile) } Else {$Password}})
     if ($Password -ne $null -and $Password -ne '')
     {
         $pass = $Password | ConvertTo-SecureString -AsPlainText -Force
@@ -515,6 +529,8 @@ function New-ApexSQLNotificationSettings
     $settings.SmtpServer = $SmtpServer
     $settings.UseSSL     = $UseSSL
     $settings.Port       = $Port
+
+    $options.NotificationSettings = $settings
     return $settings
 }
 
@@ -542,14 +558,10 @@ function New-ApexSqlOptions
         [Parameter(Mandatory = $false)]
         [string] $OutputLocation,
 
-        [Parameter(Mandatory = $true)]
-        [ApexSqlNotificationSettings] $NotificationSettings,
-
         [Parameter(Mandatory = $false)]
         [switch] $NoSubfolders
     )
     $timestamp = Get-Date -Format "MM-dd-yyyy_HH-mm-ss"
-
     $options = New-Object -TypeName ApexSqlOptions
     $options.PipelineName = $PipelineName
     $options.ScriptDirectory = $global:currentDirectory
@@ -569,7 +581,8 @@ function New-ApexSqlOptions
     }
     $options.Timestamp = $timestamp
 	$options.OutputLogFile = "$($options.OutputLocation)\$($PipelineName)_job_summary.log"
-    $options.NotificationSettings = $NotificationSettings
+    $options.NotificationSettings = $null
+
     if (-not (Test-Path $options.OutputLocation))
     {
         New-Item -Path $OutputLocation -ItemType Directory -Force | Out-Null
@@ -748,6 +761,50 @@ function GetStepName
         "Deploy" {return "Deploy"}
         default {return}
     }
+}
+
+function Get-Pass
+{
+    param
+    (
+        [string] $PasswordFile
+    )
+    if ($PasswordFile.Length -gt 0)
+    {
+        $filePath = "$($options.ScriptDirectory)\Passwords\$($PasswordFile).txt"
+        if (Test-Path -Path $filePath -PathType leaf)
+        {
+            $EncryptedPass = (Get-Content -Path $filePath)
+            if ($EncryptedPass.Length -gt 0)
+            {     
+                $DecryptedPass = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR( (ConvertTo-SecureString $EncryptedPass) ))
+            }
+            else
+            {
+                $msg = "No password provided in file ""$($filePath)!"""
+                Write-Warning $msg
+                Out-File -FilePath $Options.OutputLogFile -InputObject $msg -Append
+                exit(1)
+            }
+        }
+        else
+        {
+            $msg = "The file ""$($filePath)"" doesn't exist!"
+            Write-Warning $msg
+            Out-File -FilePath $Options.OutputLogFile -InputObject $msg -Append
+            exit(1)
+        }
+    }
+    else
+    {
+        $msg = "No password file is provided!"
+        Write-Warning $msg
+        Out-File -FilePath $Options.OutputLogFile -InputObject $msg -Append
+        exit(1)
+    }
+    
+    
+    return $DecryptedPass 
 }
 
 function Get-ApexSQLToolLocation
@@ -1075,10 +1132,13 @@ function PublishPackage()
 	param
     (
     [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
-        [string] $Destination
+        [string] $Destination,
+
+    [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [string] $ApiKey
     )
 
-    if ($apiKey -eq "")
+    if ($ApiKey -eq "")
     {
         $error = "No NuGet server api key provided - so not pushing anything up."
         Write-Warning -Message $error
@@ -1124,7 +1184,7 @@ function PublishPackage()
     {
         try
         {
-            &$nugetExe push ($file.FullName) -Source $pushSource -apiKey $apiKey
+            &$nugetExe push ($file.FullName) -Source $pushSource -apiKey $ApiKey
 
             $msg = "`r`n`tPackage successfully published."
             Out-File -FilePath $Options.OutputLogFile -InputObject $msg -Append
@@ -1435,7 +1495,7 @@ function Invoke-ApexSqlPopulateStep
         [int] $RowCount = 1000,
 
         [Parameter(Mandatory = $false)]
-        [bool] $FillOnlyEmptyTables = $false,
+        [switch] $FillAllTables,
 
         [Parameter(Mandatory = $false)]
 		[bool] $StopOnFail = $true,
@@ -1475,7 +1535,7 @@ function Invoke-ApexSqlPopulateStep
 		$additional = " $AdditionalOptions"
 	}
     $fillEmpty = ""
-    if ($FillOnlyEmptyTables)
+    if (!$FillAllTables)
     {
        $fillEmpty = " /foet" 
     }
@@ -1919,9 +1979,8 @@ function Invoke-ApexSqlPackageStep
         [string]$nugetOwners = $global:nugetOwners,
         [string]$nugetReleaseNotes = "",
         [string]$apiKey = $global:apiKey,
+        [string]$apiKeyFile = $global:apiKeyFile,
         [string]$pushSource = $global:pushSource,
-        [string]$UserName = $global:userName,
-        [string]$Password = $global:password,
         [string]$nuget = $global:nugetExePath,
         [bool]$clean = $false,
         [switch]$DoNotRemoveContents,
@@ -1961,9 +2020,13 @@ function Invoke-ApexSqlPackageStep
     RemoveSnapshots -Location "$($Options.OutputLocation)"
     CleanUp
     PackageTheSpecification
+    if ($apiKey -eq "" -or $apiKey -eq $null)
+    {
+        $apiKey = (Get-Pass -PasswordFile $apiKeyFile)
+    }
     if ($Publish -and $Options.Result -ne "Failure")
     {
-        PublishPackage -Destination $Options.OutputLocation
+        PublishPackage -Destination $Options.OutputLocation -ApiKey $apiKey
     }
     else
     {
@@ -2271,8 +2334,6 @@ function Invoke-ApexSqlSchemaSyncStep
         [Parameter(Mandatory = $false)]
 		[switch] $NoSummary,
         [Parameter(Mandatory = $false)]
-		[switch] $NoWarnings,
-        [Parameter(Mandatory = $false)]
 		[switch] $SourceFromPipeline
 
 	)
@@ -2306,7 +2367,6 @@ function Invoke-ApexSqlSchemaSyncStep
     #Output files names
     $schemaSyncScript  = "$($Options.OutputLocation)\SchemaSync_$($Source.ConnectionName)_$($Target.ConnectionName)_SyncScript.sql"
     $schemaSyncReport  = "$($Options.OutputLocation)\SchemaSync_$($Source.ConnectionName)_$($Target.ConnectionName)_DiffReport.html"
-    $schemaSyncWarnings = "$($Options.OutputLocation)\SchemaSync_$($Source.ConnectionName)_$($Target.ConnectionName)_SyncWarnings.log"
     $schemaSyncSummary = "$($Options.OutputLocation)\SchemaSync_$($Source.ConnectionName)_$($Target.ConnectionName)_DiffSummary.log"
 
     #Check if source is .nupkg
@@ -2373,11 +2433,7 @@ function Invoke-ApexSqlSchemaSyncStep
     {
         $script = " /ot2:sql /on2:""$schemaSyncScript"""
     }	
-    $warnings = ""
-    if (!$NoWarnings)
-    {
-        $warnings = " /wao:""$schemaSyncWarnings"""
-    }
+    
     $summary = ""
     if (!$NoSummary)
     {
@@ -2386,7 +2442,7 @@ function Invoke-ApexSqlSchemaSyncStep
     #endregion
 
     #Full tool parameters
-    $toolParameters = "$($sourceParameters) $($Target.AsParameters("diff2")) $report $script $warnings $summary $project$additional /dsn:""$($Options.OutputLocation)\Db_SnapShot_Diff.axdsn"" /v /f"
+    $toolParameters = "$($sourceParameters) $($Target.AsParameters("diff2")) $report $script $summary $project$additional /dsn:""$($Options.OutputLocation)\Db_SnapShot_Diff.axdsn"" /v /f"
 	$params = @{
 		ToolName = "Diff"
 		ToolParameters = $toolParameters 
@@ -2450,8 +2506,6 @@ function Invoke-ApexSqlDataSyncStep
         [Parameter(Mandatory = $false)]
 		[switch] $NoSummary,
         [Parameter(Mandatory = $false)]
-		[switch] $NoWarnings,
-        [Parameter(Mandatory = $false)]
 		[switch] $SourceFromPipeline
 	)
     if ($Options.Result -eq "Failure")
@@ -2484,7 +2538,6 @@ function Invoke-ApexSqlDataSyncStep
     #Output files names
     $dataSyncScript  = "$($Options.OutputLocation)\DataSync_$($Source.ConnectionName)_$($Target.ConnectionName)_SyncScript.sql"
     $dataSyncReport  = "$($Options.OutputLocation)\DataSync_$($Source.ConnectionName)_$($Target.ConnectionName)_DiffReport.html"
-    $dataSyncWarnings  = "$($Options.OutputLocation)\DataSync_$($Source.ConnectionName)_$($Target.ConnectionName)_SyncWarnings.log"
     $dataSyncSummary  = "$($Options.OutputLocation)\DataSync_$($Source.ConnectionName)_$($Target.ConnectionName)_DiffSummary.log"
 
     $sourceParameters = ""
@@ -2534,11 +2587,7 @@ function Invoke-ApexSqlDataSyncStep
     {
         $script = " /ot2:sql /on2:""$dataSyncScript"""
     }	
-    $warnings = ""
-    if (!$NoWarnings)
-    {
-        $warnings = " /wao:""$dataSyncWarnings"""
-    }
+    
     $summary = ""
     if (!$NoSummary)
     {

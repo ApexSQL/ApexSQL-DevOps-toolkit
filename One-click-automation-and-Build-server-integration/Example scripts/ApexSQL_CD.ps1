@@ -1,4 +1,22 @@
-﻿#region Initial settings
+﻿<#
+Instead of using plain text as an argument for $global:apiKey variable and -Password switch, 
+use the $global:apiKeyFile variable and -PasswordFile switch 
+and provide, as anargument, the file name where the ApiKey/password is stored.
+
+Examples:
+$global:apiKeyFile = "ApiKey_file", 
+New-ApexSqlDatabaseConnection ... -PasswordFile "DBPassword" ...,
+New-ApexSQLNotificationSettings ... -PasswordFile "GMailPassword" ...
+
+To be able to provide the ApiKey and password files to $global:apiKeyFile variable and -PasswordFile switch, 
+save them beforehand to files using:
+
+Read-Host -AsSecureString |ConvertFrom-SecureString |Out-File path_to_the_script\Passwords\ApiKey_file.txt
+Read-Host -AsSecureString |ConvertFrom-SecureString |Out-File path_to_the_script\Passwords\DBPassword.txt
+Read-Host -AsSecureString |ConvertFrom-SecureString |Out-File path_to_the_script\Passwords\GMailPassword.txt
+#>
+
+#region Initial settings
 
 Initialize-Globals -CurrentDirectory "$(Split-Path -parent $PSCommandPath)"
 #Nuget package settings
@@ -6,16 +24,14 @@ $global:nugetId = "ApexSQL_CD"
 $global:nugetAuthors = "ApexSQL LLC"
 $global:nugetOwners = "ApexSQL LLC"
 $global:pushSource = "cicd.apexsql"
-$global:apiKey = "*******"
-$global:userName = "user@email.com"
-$global:password = "*******"
+$global:apiKeyFile = "ApiKey_file"
 $global:nugetExePath = "C:\Program Files\ApexSQL\ApexSQL CICD toolkit\Modules\ApexSQL_cicd\nuget.exe"
 
-#Email server settings used for notifications
-$notificationSettings = New-ApexSQLNotificationSettings -EmailAddress "*******@email.com" -Password "*******" -SmtpServer "smtp.gmail.com" -Port 587 -UseSSL
-
 #Global options (pipeline name, output folder location and notification settings)
-$options = New-ApexSqlOptions -PipelineName "CD_Pipeline" -NotificationSettings $notificationSettings
+$options = New-ApexSqlOptions -PipelineName "CD_Pipeline"
+
+#Email server settings used for notifications
+$notificationSettings = New-ApexSQLNotificationSettings -EmailAddress "example@gmail.com" -PasswordFile "GMailPassword" -SmtpServer "smtp.gmail.com" -Port 587 -UseSSL
 
 #endregion
 
@@ -26,7 +42,7 @@ $options = New-ApexSqlOptions -PipelineName "CD_Pipeline" -NotificationSettings 
 $stageDB = New-ApexSQLSource -ConnectionName "stageDB" -Source_Type nuget -Source "cicd.apexsql" -NugetID "ApexSQL_CI" -Latest $true
 
 #Define data source: database (production)
-$productionDB = New-ApexSqlDatabaseConnection -ConnectionName "productionDB" -Server "server" -Database "database_PROD" -WindowsAuthentication
+$productionDB = New-ApexSqlDatabaseConnection -ConnectionName "productionDB" -Server "production_server" -Database "database_PROD" -UserName "sa" -PasswordFile "DBPassword"
 
 #endregion
 
@@ -34,13 +50,13 @@ $productionDB = New-ApexSqlDatabaseConnection -ConnectionName "productionDB" -Se
 #region CD pipeline steps in order of execution
 
 #Notification step
-#Invoke-ApexSqlNotifyStep -Options $options -DistributionList "*******@gmail.com" -Status started
+#Invoke-ApexSqlNotifyStep -Options $options -DistributionList "example@gmail.com" -Status started
 
 #SchemaSync step
-Invoke-ApexSqlSchemaSyncStep -Options $options -Source $stageDB -Target $productionDB -No | Out-Null
+Invoke-ApexSqlSchemaSyncStep -Options $options -Source $stageDB -Target $productionDB | Out-Null
 
 #DataSync step
-Invoke-ApexSqlDataSyncStep -Options $options -Source $stageDB -Target $productionDB -NoWarnings | Out-Null
+Invoke-ApexSqlDataSyncStep -Options $options -Source $stageDB -Target $productionDB | Out-Null
 
 #Document step
 Invoke-ApexSqlDocumentStep -Options $options -AsChm -Differential | Out-Null
@@ -48,11 +64,9 @@ Invoke-ApexSqlDocumentStep -Options $options -AsChm -Differential | Out-Null
 #Deploy step
 Invoke-ApexSqlDeployStep -Options $options -Source $stageDB -DeployType Both -Database $productionDB | Out-Null
 
-#Package step
-Invoke-ApexSqlPackageStep -Options $options -nugetVersion "1.0.3" -nugetReleaseNotes "Release_notes_here" | Out-Null
 
 #Notification step
-Invoke-ApexSqlNotifyStep -Options $options -DistributionList "*******@gmail.com" -Status completed
+Invoke-ApexSqlNotifyStep -Options $options -DistributionList "example@gmail.com" -Status completed
 
 #endregion
 

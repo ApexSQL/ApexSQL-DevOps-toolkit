@@ -1,6 +1,21 @@
 Release notes: this document describes changes and enhancements made to ApexSQL CI/CD toolkit PowerShell module
 
 --------------------------------------------------------------------------------------------------
+Release: 	2017.02.0006
+Date: 		July 04, 2018
+--------------------------------------------------------------------------------------------------
+
+Enhancements:
+
+- The -PasswordFile switch is added to the New-ApexSqlNotificationSettings, New-ApexSqlSource and New-ApexSqlDatabaseConnection cmdlets to use encrypted password saved in a file
+
+Changes:
+
+- Optional -FillOnlyEmptyTables switch for the Invoke-ApexSqlPopulateStep cmdlet is replaced with the -FillAllTables switch
+- The switch -FillOnlyEmptyTables for the Invoke-ApexSqlPopulateStep cmdlet is now set as built-in default
+
+
+--------------------------------------------------------------------------------------------------
 Release: 	2017.02.0005
 Date: 		April 26, 2018
 --------------------------------------------------------------------------------------------------
