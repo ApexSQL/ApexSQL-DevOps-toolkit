@@ -1,6 +1,24 @@
 Release notes: this document describes changes and enhancements made to ApexSQL CI/CD toolkit PowerShell module
 
 --------------------------------------------------------------------------------------------------
+Release: 	2018.03.0053
+Date: 		September 07, 2018
+--------------------------------------------------------------------------------------------------
+
+Enhancements:
+
+- The -ExcludeTables switch is added for the Audit step to exclude desired tables
+
+Fixes:
+
+- NuGet package file is not created when designated file name is used from the global settings
+
+Changes:
+
+- ApexSQL Trigger project file is now mandatory for the Audit step in order to provide repository database information
+- Audit step no longer overwrites existing table triggers
+
+--------------------------------------------------------------------------------------------------
 Release: 	2017.02.0006
 Date: 		July 04, 2018
 --------------------------------------------------------------------------------------------------

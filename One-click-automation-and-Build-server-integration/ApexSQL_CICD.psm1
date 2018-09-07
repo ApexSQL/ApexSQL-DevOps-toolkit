@@ -599,6 +599,30 @@ function New-ApexSqlOptions
     Out-File -FilePath $Options.OutputLogFile -InputObject $msg -Append
     return $options
 }
+#endregion
+
+#region Helpers
+
+function Initialize-Globals
+{
+	param
+    (
+        [string] $CurrentDirectory
+    )
+    $global:currentDirectory = $CurrentDirectory
+    $global:logPath = $null
+    $global:StaticDataSource_ForDataDiff = $null
+    $global:StaticDataPath_ForDataDiff = $null
+    $global:SkippingList = $null
+    $global:nuspec = $null
+    $global:nugetDbScriptFolderSource = $null
+    #Create and reset ResultSet
+    $global:ResultSet = [ordered]@{}
+    if ($Options.Result -eq $null)
+    {
+        $global:ResultSet.Clear()
+    }    
+}
 
 function GetSourceName
 {
@@ -619,102 +643,19 @@ function GetSourceName
     }
 }
 
-function GetSourceForDataDiff
+function GetStaticDataFolderPath
 {
     [CmdletBinding()]
 	param
 	(
         [Parameter(Mandatory = $true)]
-        [xml] $xml,
-
-        [Parameter(Mandatory = $true)]
-        [string] $scPass
+        $Path
     )
 
-        $sct1 = GetSourceName ($xml.ApexSQLBuildProject.ProjectOptions.Options.Option.ScConnectionInfo.SourceControlType)
-        $scs1 = "$($xml.ApexSQLBuildProject.ProjectOptions.Options.Option.ScConnectionInfo.Server)"
-        $scj1 = "$($xml.ApexSQLBuildProject.ProjectOptions.Options.Option.ScConnectionInfo.ProjectPath)"
-        $scr1 = "$($xml.ApexSQLBuildProject.ProjectOptions.Options.Option.ScConnectionInfo.Repository)"
-        $scb1 = "$($xml.ApexSQLBuildProject.ProjectOptions.Options.Option.ScConnectionInfo.Branch)"
-        $scl1 = "$($xml.ApexSQLBuildProject.ProjectOptions.Options.Option.ScConnectionInfo.Label)"
-        $scf1 = "$($xml.ApexSQLBuildProject.ProjectOptions.Options.Option.ScConnectionInfo.CustomScriptsFolderLocation)"
-        $scu1 = "$($xml.ApexSQLBuildProject.ProjectOptions.Options.Option.ScConnectionInfo.UserName)"
-        $scp1 = $scPass
-         
-        $DataDiffParameters = " /sct1:$($sct1) "
-
-        if ($sct1 -eq "teamfoundationserver")
-        {
-            if ($scs1 -ne $null -and $scs1 -ne "")
-            {
-                $DataDiffParameters += " /scs1:""$($scs1)"" "
-            }
-            if ($scj1 -ne $null -and $scj1 -ne "")
-            {
-                $DataDiffParameters += " /scj1:""$($scj1)"" "
-            }
-            if ($scb1 -ne $null -and $scb1 -ne "")
-            {
-                $DataDiffParameters += " /scb1:""$($scb1)"" "
-            }
-            if ($scl1 -ne $null -and $scl1 -ne "")
-            {
-                $DataDiffParameters += " /scl1:""$($scl1)"" "
-            }  
-        }
-        if ($sct1 -eq "git" -or $sct1 -eq "mercurial")
-        {
-            if ($scs1 -ne $null -and $scs1 -ne "" -and $scr1 -ne $null -and $scr1 -ne "")
-            {
-                $DataDiffParameters += " /scr1:""$($scs1)/$($scr1)"" "
-            }
-            if ($scj1 -ne $null -and $scj1 -ne "")
-            {
-                $DataDiffParameters += " /scj1:""$($scj1)"" "
-            }
-            if ($scb1 -ne $null -and $scb1 -ne "")
-            {
-                $DataDiffParameters += " /scb1:""$($scb1)"" "
-            }
-            if ($scl1 -ne $null -and $scl1 -ne "")
-            {
-                $DataDiffParameters += " /scl1:""$($scl1)"" "
-            } 
-        }
-        if ($scu1 -ne $null -and $scu1 -ne "")
-        {
-            $DataDiffParameters += " /scu1:""$($scu1)"" "
-        }
-        if ($scp1 -ne $null -and $scp1 -ne "")
-        {
-            $DataDiffParameters += " /scp1:""$($scp1)"" "
-        }
-
-        return $DataDiffParameters
-}
-#endregion
-
-#region Helpers
-
-function Initialize-Globals
-{
-	param
-    (
-        [string] $CurrentDirectory
-    )
-    $global:currentDirectory = $CurrentDirectory
-    $global:logPath = $null
-    $global:SourceForScriptDataDiff = $null
-    $global:SkippingList = $null
-    $global:nuspec = $null
-    $global:nugetDbScriptFolderSource = $null
-    $global:qaDB = $null
-    #Create and reset ResultSet
-    $global:ResultSet = [ordered]@{}
-    if ($Options.Result -eq $null)
-    {
-        $global:ResultSet.Clear()
-    }    
+        [xml]$projecFile = Get-Content $Path
+        $SourceControllInfo = $projecFile.ApexSQLBuildProject.ProjectOptions.Options.Option | where { $_.id -eq "SourceControlConnection"}
+        $SourceFolder = $SourceControllInfo.ScConnectionInfo.SourceControlFolder
+        return $SourceFolder + "\Tables\StaticData"
 }
 
 function GetToolName
@@ -1122,7 +1063,7 @@ function PackageTheSpecification()
     #If DoNotRemoveContents switch missing remove all files (except .nupkg and .log)
     if (!$DoNotRemoveContents)
     {
-        Get-Childitem "$($Options.OutputLocation)" -Exclude *.nupkg, *_job_summary.log | foreach ($_) {remove-item $_.fullname -Recurse }
+        Get-Childitem "$($Options.OutputLocation)" -Exclude *.nupkg, *_job_summary.log | foreach ($_) {remove-item $_.fullname -Recurse -Force}
     }
 }
 
@@ -1379,15 +1320,15 @@ function Invoke-ApexSqlBuildStep
 	{
         $ProjectFile = $options.ScriptDirectory + "\Projects\" + $ProjectFile
         $project = " /project:""$ProjectFile"""
-
-        #Get details from ProjectFile
-        [xml] $xml = Get-Content "$($ProjectFile)"
-        $global:SourceForScriptDataDiff = GetSourceForDataDiff -xml $xml -scPass "$($scPass)"
+        if ($Source -eq $null)
+        {
+            $global:StaticDataPath_ForDataDiff = GetStaticDataFolderPath -Path "$($ProjectFile)"
+        }
 	}
     else
     {
         #Store Source for Static Data (from entered parameters)
-        $global:SourceForScriptDataDiff = $Source
+        $global:StaticDataSource_ForDataDiff = $Source
     }
     
     if (($Source -eq $null -and $Database -eq $null) -and $ProjectFile -eq $null)
@@ -1430,8 +1371,9 @@ function Invoke-ApexSqlBuildStep
 	    {
 		    $sourceParams = $Source.AsParameters()
 	    }
+
         #Storing Source for DataDiff in Script step - Static Data copying (add '1' to all source parameters [/s: => /s1: ...])
-        $global:SourceForScriptDataDiff = $($sourceParams).replace(":", "1:").replace("http1:","http:").replace("https1:","https:")
+        $global:StaticDataSource_ForDataDiff = $($sourceParams).replace(":", "1:").replace("http1:","http:").replace("https1:","https:")
     }
 
     #Configure Database parameters
@@ -1439,7 +1381,6 @@ function Invoke-ApexSqlBuildStep
     if ($Database -ne $null)
     {
 	    $databaseParams = $Database.AsParameters()
-        $global:qaDB = $Database
     } 
 
     #Output files names
@@ -1488,11 +1429,11 @@ function Invoke-ApexSqlPopulateStep
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [ApexSqlOptions] $Options,
 
-		[Parameter(Mandatory = $true)]
+		[Parameter(Mandatory = $false)]
 		[ApexSqlDatabaseConnection] $Database,
 
         [Parameter(Mandatory = $false)]
-        [int] $RowCount = 1000,
+        [int] $RowCount,
 
         [Parameter(Mandatory = $false)]
         [switch] $FillAllTables,
@@ -1549,7 +1490,11 @@ function Invoke-ApexSqlPopulateStep
     {
         $outScript = "/ot:SQL /on:""$($scriptName)"" /eae"
     }
-	$toolParameters = "$($Database.AsParameters()) /r:$($RowCount)$fillEmpty$project$additional $($outScript) /v /f "
+
+    $db = (&{ if ($Database) {"$($Database.AsParameters()) "} Else {""}} )
+    $rows = (&{ if ($RowCount) {"/r:$RowCount "} Else {""}} )
+
+	$toolParameters = "$($db) $($rows) $fillEmpty$project$additional $($outScript) /v /f "
 	$params = @{
 		ToolName = "Generate"
 		ToolParameters = $toolParameters 
@@ -1588,7 +1533,7 @@ function Invoke-ApexSqlAuditStep
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [ApexSqlOptions] $Options,
 
-		[Parameter(Mandatory = $true)]
+		[Parameter(Mandatory = $false)]
 		[ApexSqlDatabaseConnection] $Database,
 
 		[Parameter(Mandatory = $false)]
@@ -1604,7 +1549,14 @@ function Invoke-ApexSqlAuditStep
 		[switch] $NoScript,
 
         [Parameter(Mandatory = $false)]
-		[switch] $NoReport
+		[switch] $NoReport,
+    
+        [Parameter(Mandatory = $false)]
+		[switch] $OverwriteExistingTriggers,
+
+        [Parameter(Mandatory = $false)]
+		[string] $ExcludeTables
+
 	)
     if ($Options.Result -eq "Failure")
     {
@@ -1633,6 +1585,9 @@ function Invoke-ApexSqlAuditStep
        $additional = " $AdditionalOptions"
     }
 
+    $db = (&{ if ($Database) {"$($Database.AsParameters())"} Else {""}} )
+
+
     #Output files names
     $reportName = "$($Options.OutputLocation)\Audit_$($Database.ConnectionName)_AuditReport.pdf"
 
@@ -1647,7 +1602,17 @@ function Invoke-ApexSqlAuditStep
     {
         $outReport = "/sr /rf:pdf /or:""$($reportName)"""
     }
-    $toolParameters = "$($Database.AsParameters())$project$additional $outReport /ai:a /at /v /f"
+    $eat = " /eat "
+    if ($OverwriteExistingTriggers)
+    {
+        $eat = ""
+    }
+    $et = ""
+    if ($ExcludeTables)
+    {
+        $et = " /et:$($ExcludeTables) "
+    }
+    $toolParameters = "$($db)$project$additional /at $($eat) $($et) $outReport /v /f"
     $params = @{
         ToolName = "Trigger"
         ToolParameters = $toolParameters 
@@ -1887,7 +1852,7 @@ function Invoke-ApexSqlScriptStep
         [ApexSqlOptions] $Options,
 
 		[Parameter(Mandatory = $false)]
-		[ApexSqlDatabaseConnection] $Database = $global:qaDB,
+		[ApexSqlDatabaseConnection] $Database = $dsQA,
 
         [Parameter(Mandatory = $false)]
 		[bool] $StopOnFail = $true
@@ -1934,21 +1899,46 @@ function Invoke-ApexSqlScriptStep
     #region DataDiff
 
     #Full tool parameters
-    $toolParametersDataDiff = " $global:SourceForScriptDataDiff /sf2:""$($scriptName)"" /o:8 /sync /f"
-    $paramsDD = @{
-		ToolName = "Data Diff"	
-        ToolParameters = $toolParametersDataDiff
-        Options = $Options
-		StopOnFail = $StopOnFail
-        FromPackage = $true
-	}
 
-    #Execute the tool (ApexSQL Data Diff)
-    Start-ApexSQLTool @paramsDD
-    if ($PSCmdlet.MyInvocation.ExpectingInput)
+    if ($global:StaticDataSource_ForDataDiff -ne $null)
     {
-        return $Options
+        $toolParametersDataDiff = " $global:StaticDataSource_ForDataDiff /sf2:""$($scriptName)"" /o:8 /sync /f"
+        $paramsDD = @{
+		    ToolName = "Data Diff"	
+            ToolParameters = $toolParametersDataDiff
+            Options = $Options
+		    StopOnFail = $StopOnFail
+            FromPackage = $true
+	    }
+
+        #Execute the tool (ApexSQL Data Diff)
+        Start-ApexSQLTool @paramsDD
+        if ($PSCmdlet.MyInvocation.ExpectingInput)
+        {
+            return $Options
+        }
+    
     }
+    else
+    {
+        $tempSrcPath = "$($global:StaticDataPath_ForDataDiff)"
+        $tempDestPath = "$($Options.OutputLocation)\DbScriptFolder\Tables"
+        if ((Test-Path -Path "$($tempSrcPath)") -and (Test-Path -Path "$($tempDestPath)"))
+        {
+            $StaticDataCopyStarted = "`r`n`r`n`t`t----- Started collecting static data -----`r`n" +
+                        "`t`t------------------------------------------`r`n"
+            Out-File -FilePath $Options.OutputLogFile -InputObject $StaticDataCopyStarted -Append
+
+            Copy-Item "$($global:StaticDataPath_ForDataDiff)" -Destination "$($Options.OutputLocation)\DbScriptFolder\Tables" -Recurse
+            
+            #Edit permissions to be able to delete later
+            $Acl = Get-Acl "$($tempDestPath)\StaticData"
+            $Ar = New-Object  system.security.accesscontrol.filesystemaccessrule($env:UserName,"FullControl","Allow")
+            $Acl.SetAccessRule($Ar)
+            Set-Acl "$($tempDestPath)\StaticData" $Acl
+        }
+    }
+
 
     $info = "`r`n`r`n`t`t----- Completed collecting static data -----`r`n" +
                     "`t`t--------------------------------------------"
@@ -2009,7 +1999,7 @@ function Invoke-ApexSqlPackageStep
 	Out-File -FilePath $Options.OutputLogFile -InputObject $info -Append
 
     #Script out temp. db to script folder (including static data)
-    if ($global:qaDB -ne $null)
+    if ($dsQA -ne $null)
     {
         Invoke-ApexSqlScriptStep -Options $options | Out-Null
     }
@@ -2020,7 +2010,7 @@ function Invoke-ApexSqlPackageStep
     RemoveSnapshots -Location "$($Options.OutputLocation)"
     CleanUp
     PackageTheSpecification
-    if ($apiKey -eq "" -or $apiKey -eq $null)
+    if (($apiKey -eq "" -or $apiKey -eq $null) -and ($apiKeyFile -ne $null -and $apiKeyFile -ne ""))
     {
         $apiKey = (Get-Pass -PasswordFile $apiKeyFile)
     }
@@ -2319,7 +2309,7 @@ function Invoke-ApexSqlSchemaSyncStep
         [ApexSqlOptions] $Options,
 		[Parameter(Mandatory = $false)]
 		[ApexSqlConnection] $Source,
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [ApexSqlConnection] $Target,
 		[Parameter(Mandatory = $false)]
 		[bool] $StopOnFail = $true,
@@ -2369,6 +2359,10 @@ function Invoke-ApexSqlSchemaSyncStep
     $schemaSyncReport  = "$($Options.OutputLocation)\SchemaSync_$($Source.ConnectionName)_$($Target.ConnectionName)_DiffReport.html"
     $schemaSyncSummary = "$($Options.OutputLocation)\SchemaSync_$($Source.ConnectionName)_$($Target.ConnectionName)_DiffSummary.log"
 
+
+    $srcDefined = (&{ if ($Source) {$true} Else {$false}} )
+    $dstDefined = (&{ if ($Target) {$true} Else {$false}} )
+
     #Check if source is .nupkg
     $sourceParameters = ""
     if (!$SourceFromPipeline)
@@ -2399,12 +2393,25 @@ function Invoke-ApexSqlSchemaSyncStep
         }
         else
         {
-            $sourceParameters = "$($Source.AsParameters("diff1"))"
+            if ($srcDefined)
+            {
+                $sourceParameters = "$($Source.AsParameters("diff1"))"
+            }
         }
     }
     else
     {
         $sourceParameters = " /sf1:""$($Options.OutputLocation)\DbScriptFolder"" "
+    }
+
+
+    if ($dstDefined)
+    {
+        $targetParameters =  $($Target.AsParameters("diff2"))
+    }
+    else 
+    {
+        $targetParameters = ""
     }
 
     #Full tool parameters for silent execution
@@ -2442,7 +2449,7 @@ function Invoke-ApexSqlSchemaSyncStep
     #endregion
 
     #Full tool parameters
-    $toolParameters = "$($sourceParameters) $($Target.AsParameters("diff2")) $report $script $summary $project$additional /dsn:""$($Options.OutputLocation)\Db_SnapShot_Diff.axdsn"" /v /f"
+    $toolParameters = "$($sourceParameters) $($targetParameters) $report $script $summary $project$additional /dsn:""$($Options.OutputLocation)\Db_SnapShot_Diff.axdsn"" /v /f"
 	$params = @{
 		ToolName = "Diff"
 		ToolParameters = $toolParameters 
@@ -2491,7 +2498,7 @@ function Invoke-ApexSqlDataSyncStep
         [ApexSqlOptions] $Options,
 		[Parameter(Mandatory = $false)]
 		[ApexSqlConnection] $Source,
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [ApexSqlConnection] $Target,
 		[Parameter(Mandatory = $false)]
 		[bool] $StopOnFail = $true,
