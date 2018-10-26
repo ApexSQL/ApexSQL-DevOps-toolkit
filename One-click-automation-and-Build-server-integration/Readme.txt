@@ -1,4 +1,4 @@
-Release notes: this document describes changes and enhancements made to ApexSQL CI/CD toolkit PowerShell module
+Release notes: this document describes changes and enhancements made to ApexSQL DevOps toolkit PowerShell module
 
 --------------------------------------------------------------------------------------------------
 Release: 	2018.04.0056
