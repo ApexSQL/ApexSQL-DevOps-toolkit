@@ -1,6 +1,30 @@
 Release notes: this document describes changes and enhancements made to ApexSQL DevOps toolkit PowerShell module
 
 --------------------------------------------------------------------------------------------------
+Release: 	2018.09.0058
+Date: 		January 15, 2019
+--------------------------------------------------------------------------------------------------
+
+Enhancements:
+
+- Installer now automatically removes previous version of PowerShell module
+- PowerShell module is now PowerShell gallery code standard compliant
+
+Fixes:
+
+- Executed step fails to find installed ApexSQL application when the application registry path is not default
+- Names of output files for the failed steps are listed in the notification email
+
+Changes:
+
+- Default installation path is changed to 'C:\Program Files\WindowsPowershell\Modules'
+- Output database folder of the Package step is now 'DatabaseScripts'
+- The Build step no longer outputs database build script 
+- The Populate step no longer outputs population script
+- The Schema sync step is now Sync step
+- The Data sync step is now Sync data step
+
+--------------------------------------------------------------------------------------------------
 Release: 	2018.04.0056
 Date: 		October 11, 2018
 --------------------------------------------------------------------------------------------------

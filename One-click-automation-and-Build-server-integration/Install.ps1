@@ -18,38 +18,58 @@ if (-not $myWindowsPrincipal.IsInRole($adminRole))
 }
 try
 {
-	$modulesPath = "C:\Program Files\ApexSQL\ApexSQL DevOps toolkit\Modules"
-	$modulesPathRegex = "C:\\Program Files\\ApexSQL\\ApexSQL DevOps toolkit\\Modules"
+	$modulesPath = "C:\Program Files\WindowsPowerShell\Modules\ApexSQL_DevOps_toolkit"
+	$modulesPathRegex = "C:\\Program Files\\WindowsPowerShell\\Modules\\ApexSQL_DevOps_toolkit"
 	$old_modulesPath = "C:\Program Files\ApexSQL\ApexSQL CICD toolkit\Modules"
 	$old_modulesPathRegex = "C:\\Program Files\\ApexSQL\\ApexSQL CICD toolkit\\Modules"
-	$devopsPath = "C:\Program Files\ApexSQL\ApexSQL DevOps toolkit\Modules\ApexSQL_DevOps"
-	if(-not (Test-Path $devopsPath))
+    $old_CICDPath = "C:\Program Files\ApexSQL\ApexSQL CICD toolkit"
+    $prev_modulesPath = "C:\Program Files\ApexSQL\ApexSQL DevOps toolkit\Modules"
+	$prev_modulesPathRegex = "C:\\Program Files\\ApexSQL\\ApexSQL DevOps toolkit\\Modules"
+    $old_DevOpsPath = "C:\Program Files\ApexSQL\ApexSQL DevOps toolkit"
+
+    if (Test-Path $old_modulesPath)
 	{
-		New-Item -Path $devopsPath -ItemType Directory -Force | Out-Null
+		Remove-Item $old_modulesPath -Recurse -Force | Out-Null
 	}
-	if ((-not (Test-Path "$PSScriptRoot\ApexSQL_DevOps.psd1")) -or (-not (Test-Path "$PSScriptRoot\ApexSQL_DevOps.psm1")))
+    if (Test-Path $prev_modulesPath)
 	{
-		Write-Host "ApexSQL_DevOps.psd1 or ApexSQL_DevOps.psm1 files are not found in directory $PSScriptRoot.`r`n"
+		Remove-Item $prev_modulesPath -Recurse -Force | Out-Null
+	}
+    if (Test-Path $old_CICDPath)
+	{
+		Remove-Item $old_CICDPath -Recurse -Force | Out-Null
+	}
+    if (Test-Path $old_DevOpsPath)
+	{
+		Remove-Item $old_DevOpsPath -Recurse -Force | Out-Null
+	}
+	if (Test-Path $modulesPath)
+    {
+        Remove-Item $modulesPath -Recurse -Force | Out-Null
+    }
+    if (-not (Test-Path $modulesPath))
+	{
+		New-Item -Path $modulesPath -ItemType Directory -Force | Out-Null
+	}
+	if ((-not (Test-Path "$PSScriptRoot\ApexSQL_DevOps_toolkit.psd1")) -or (-not (Test-Path "$PSScriptRoot\ApexSQL_DevOps_toolkit.psm1")))
+	{
+		Write-Host "ApexSQL_DevOps_toolkit.psd1 or ApexSQL_DevOps_toolkit.psm1 files are not found in directory $PSScriptRoot.`r`n"
 		Write-Host "Please download latest version of the installation files and run Install.ps1 again`r`n"
 		pause
 		exit
 	}
-	Copy-Item -Path "$PSScriptRoot\ApexSQL_DevOps.psd1" -Destination $devopsPath -Force
-	Copy-Item -Path "$PSScriptRoot\ApexSQL_DevOps.psm1" -Destination $devopsPath -Force
-	Copy-Item -Path "$PSScriptRoot\Package.nuspec" -Destination $devopsPath -Force
+
+	Copy-Item -Path "$PSScriptRoot\ApexSQL_DevOps_toolkit.psd1" -Destination $modulesPath -Force
+	Copy-Item -Path "$PSScriptRoot\ApexSQL_DevOps_toolkit.psm1" -Destination $modulesPath -Force
 
 	$currentValue = [Environment]::GetEnvironmentVariable("PSModulePath")
-	if ($currentValue -notmatch $modulesPathRegex)
+	if ($currentValue -match $old_modulesPathRegex)
+    {
+        [Environment]::SetEnvironmentVariable("PSModulePath", $currentValue.Replace("$old_modulesPath" ,""), "Machine")
+    }
+	if ($currentValue -match $prev_modulesPathRegex)
 	{
-		[Environment]::SetEnvironmentVariable("PSModulePath", $currentValue + ";$modulesPath", "Machine")
-	}
-	else
-	{
-		[Environment]::SetEnvironmentVariable("PSModulePath", $currentValue.Replace("$old_modulesPath" ,"$modulesPath"), "Machine")
-		if (Test-Path "C:\Program Files\ApexSQL\ApexSQL CICD toolkit")
-		{
-			Remove-Item -Recurse -Force "C:\Program Files\ApexSQL\ApexSQL CICD toolkit"
-		}
+		[Environment]::SetEnvironmentVariable("PSModulePath", $currentValue.Replace("$prev_modulesPath" ,""), "Machine")
 	}
 	Write-Host "Installation completed successfully"
 }

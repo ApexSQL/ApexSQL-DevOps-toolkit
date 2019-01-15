@@ -18,23 +18,22 @@ Read-Host -AsSecureString |ConvertFrom-SecureString |Out-File path_to_the_script
 Read-Host -AsSecureString |ConvertFrom-SecureString |Out-File path_to_the_script\Passwords\GMailPassword.txt
 #>
 
-
 #region Initial settings
 Initialize-Globals -CurrentDirectory "$(Split-Path -parent $PSCommandPath)"
 
 #Nuget package settings
-$global:nugetId = "package"
+$global:nugetId = "packageID"
 $global:nugetAuthors = "ApexSQL LLC"
 $global:nugetOwners = "ApexSQL LLC"
-$global:pushSource = "https://devopsnenad.pkgs.visualstudio.com/_packaging/test.apexsql/nuget/v3/index.json"
+$global:pushSource = "https://some.nuget.feed.url.com"
 $global:apiKeyFile = "ApiKey_file"
-$global:nugetExePath = "C:\Program Files\ApexSQL\ApexSQL DevOps toolkit\Modules\ApexSQL_DevOps\nuget.exe"
+$global:nugetExePath = "C:\nuget.exe"
 
 #Global options (pipeline name, output folder location and notification settings)
 $options = New-ApexSqlOptions -PipelineName "CI_Pipeline"
 
 #Email server settings used for notifications
-$notificationSettings = New-ApexSQLNotificationSettings -Options $options -EmailAddress "example@gmail.com" -Password "GMailPassword" -SmtpServer "smtp.gmail.com" -Port 587 -UseSSL
+$notificationSettings = New-ApexSQLNotificationSettings -Options $options -EmailAddress "user@example.com" -PasswordFile "PasswordFileName" -SmtpServer "some.smtp.server.com" -Port 587 -UseSSL 
 
 #endregion
 
@@ -42,10 +41,10 @@ $notificationSettings = New-ApexSQLNotificationSettings -Options $options -Email
 #region Data source definitions
 
 #Define data source
-$dsSC = New-ApexSQLSource -ConnectionName "tfs_source" -Source_Type "tfs" -Server "https://devopsnenad.visualstudio.com/" -Project "$/Database" -UserName "devopsnenad" -PasswordFile "SourcePassword"
+$dsSC = New-ApexSQLSource -ConnectionName "git_source" -Source_Type "git"-Repository "https://github.com/user/someRepository.git" -Project "$/projectName" -U "user@example.com" -PasswordFile "passwordFileName"
 
 #Define target: new database (testing)
-$dsQA = New-ApexSqlDatabaseConnection -ConnectionName "qaDB_dest" -Server "localhost" -Database "test_DB" -UserName "sa" -PasswordFile "DBPassword"
+$dsQA = New-ApexSqlDatabaseConnection -ConnectionName "qaDB_dest" -Server "serverName" -Database "databaseName" -WindowsAuthentication
 
 #endregion
 
@@ -53,28 +52,31 @@ $dsQA = New-ApexSqlDatabaseConnection -ConnectionName "qaDB_dest" -Server "local
 #region CI pipeline steps in order of execution
 
 #Notification step
-#Invoke-ApexSqlNotifyStep -Options $options -DistributionList "example@gmail.com" -Status started
+#Invoke-ApexSqlNotifyStep -Options $options -DistributionList "user@example.com" -Status started
 
 #Build step
-Invoke-ApexSqlBuildStep -Options $options -Source $dsSC -Database $dsQA | Out-Null
+Invoke-ApexSqlBuildStep -Options $options -Source $dsSC -Database $dsQA -Verbose | Out-Null
 
 #Populate step
-Invoke-ApexSqlPopulateStep -Options $options -Database $dsQA -RowCount 100 | Out-Null
+Invoke-ApexSqlPopulateStep -Options $options -Database $dsQA -RowCount 100 -Verbose | Out-Null
 
 #Audit step
-Invoke-ApexSqlAuditStep -Options $options -Database $dsQA | Out-Null
+#Invoke-ApexSqlAuditStep -Options $options -Database $dsQA -Verbose | Out-Null
 
 #Review step
-#Invoke-ApexSqlReviewStep -Options $options -Database $dsQA -ProjectFile "Review_RuleBase.axrb" -Passed -Failed -Errors | Out-Null
+Invoke-ApexSqlReviewStep -Options $options -Database $dsQA -ProjectFile "Review_RuleBase.axrb" -Passed -Failed -Errors -Verbose | Out-Null
 
 #Test step
-Invoke-ApexSqlTestStep -Options $options -Database $dsQA -InstallSqlCop | Out-Null
+Invoke-ApexSqlTestStep -Options $options -Database $dsQA -InstallSqlCop -Verbose | Out-Null
+
+#Document step
+Invoke-ApexSqlDocumentStep -Options $options -Database $dsQA -AsPdf -Verbose | Out-Null
 
 #Package step
-Invoke-ApexSqlPackageStep -Options $options -nugetVersion "1.1.2" -nugetReleaseNotes "Release_notes_here" -Publish | Out-Null
+Invoke-ApexSqlPackageStep -Options $options -Database $dsQA -nugetVersion "1.0.5" -nugetReleaseNotes "Release notes text here" -Publish -Verbose | Out-Null
 
 #Notification step
-Invoke-ApexSqlNotifyStep -Options $options -DistributionList "example@gmail.com" -Status completed
+Invoke-ApexSqlNotifyStep -Options $options -DistributionList "user@example.com" -Status completed -Verbose
 
 #endregion
 

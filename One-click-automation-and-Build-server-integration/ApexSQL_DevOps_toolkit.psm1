@@ -1,4 +1,12 @@
 ﻿#region Classes
+#[Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidGlobalVars", Scope="function", Target="*")]
+#[Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword", Scope="function", Target="*")]
+#[Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", Scope="function", Target="*")]
+#[Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseDeclaredVarsMoreThanAssignments", Scope="function", Target="*")]
+#[Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseSingularNouns", Scope="function", Target="*")]
+#[Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingInvokeExpression", Scope="function", Target="*")]
+#Param()
+
 class ApexSqlConnection
 {
     [string] $ConnectionName
@@ -55,6 +63,7 @@ class ApexSqlDatabaseConnection : ApexSqlConnection
 
 function New-ApexSqlDatabaseConnection
 {
+    [CmdletBinding(SupportsShouldProcess)]
     param
     (
         [Parameter(Mandatory = $true)]
@@ -70,10 +79,10 @@ function New-ApexSqlDatabaseConnection
         [switch] $WindowsAuthentication,
 
         [Parameter(Mandatory = $false, ParameterSetName = "credentials")]
-        [string] $UserName,
+        [string] $U,
 
         [Parameter(Mandatory = $false, ParameterSetName = "credentials")]
-        [string] $Password,
+        [string] $P,
 
         [Parameter(Mandatory = $false, ParameterSetName = "credentials")]
         [string] $PasswordFile
@@ -83,8 +92,8 @@ function New-ApexSqlDatabaseConnection
     $connection.Server   = $Server
     $connection.Database = $Database
     $connection.WindowsAuthentication = $WindowsAuthentication
-    $connection.UserName = $UserName
-    $connection.Password = (&{If(!$WindowsAuthentication -and !$Password) {Get-Pass -PasswordFile $PasswordFile} Else {$Password}})
+    $connection.UserName = $U
+    $connection.Password = (&{If(!$WindowsAuthentication -and !$U) {Get-Pass -PasswordFile $PasswordFile} Else {$U}})
     return $connection
 }
 
@@ -151,20 +160,21 @@ class ApexSqlSourceControlConnection : ApexSqlConnection
 
 function New-ApexSQLSource
 {
+    [CmdletBinding(SupportsShouldProcess)]
     param
     (
         [Parameter(Mandatory = $true)]
         [string] $ConnectionName,
-        
+
         [Parameter(Mandatory = $false)]
         [ValidateSet("tfs","git","mercurial", "subversion", "perforce", "file", "nuget")]
         [String] $Source_Type,
 
         [Parameter(Mandatory = $false)]
-        [string] $UserName,
+        [string] $U,
 
         [Parameter(Mandatory = $false)]
-        [string] $Password,
+        [string] $P,
 
         [Parameter(Mandatory = $false)]
         [string] $PasswordFile,
@@ -203,20 +213,19 @@ function New-ApexSQLSource
         [string] $Source
      )
 
-     $global:scRepoConnectionName = $ConnectionName
-     if (!$Password -and $Source_Type -ne "nuget")
+     if (!$P -and $Source_Type -ne "nuget")
      {
-        $Password = Get-Pass -PasswordFile $PasswordFile
+        $P = Get-Pass -PasswordFile $PasswordFile
      }
     if ($Source_Type -ne $null)
     {
         switch($Source_Type)
         {
-            "tfs" { New-ApexSqlTfsSourceControlConnection -ConnectionName $ConnectionName -Server $Server -Project $Project -Label $Label -UserName $UserName -Password $Password }
-            "git" { New-ApexSqlGitSourceControlConnection -ConnectionName $ConnectionName -Repository $Repository -Project $Project -Branch $Branch -Label $Label -UserName $UserName -Password $Password }
-            "mercurial" { New-ApexSqlMercurialSourceControlConnection -ConnectionName $ConnectionName -Repository $Repository -Project $Project -Label $Label -UserName $UserName -Password $Password }
-            "subversion" { New-ApexSqlSubversionSourceControlConnection -ConnectionName $ConnectionName -Repository $Repository -Project $Project -Label $Label -UserName $UserName -Password $Password  }
-            "perforce" { New-ApexSqlPerforceSourceControlConnection -ConnectionName $ConnectionName -Server $Server -Repository $Repository -Project $Project -Label $Label -UserName $UserName -Password $Password }
+            "tfs" { New-ApexSqlTfsSourceControlConnection -ConnectionName $ConnectionName -Server $Server -Project $Project -Label $Label -U $U -P $P }
+            "git" { New-ApexSqlGitSourceControlConnection -ConnectionName $ConnectionName -Repository $Repository -Project $Project -Branch $Branch -Label $Label -U $U -P $P }
+            "mercurial" { New-ApexSqlMercurialSourceControlConnection -ConnectionName $ConnectionName -Repository $Repository -Project $Project -Label $Label -U $U -P $P }
+            "subversion" { New-ApexSqlSubversionSourceControlConnection -ConnectionName $ConnectionName -Repository $Repository -Project $Project -Label $Label -U $U -P $P  }
+            "perforce" { New-ApexSqlPerforceSourceControlConnection -ConnectionName $ConnectionName -Server $Server -Repository $Repository -Project $Project -Label $Label -U $U -P $P }
             "file" { New-ApexSqlFileConnection -ConnectionName $ConnectionName -FilePath $Filepath }
             "sf" { New-ApexSqlSFConnection -ConnectionName $ConnectionName -FolderPath $Folderpath }
             "nuget" { New-ApexSqlNugetConnection -ConnectionName $ConnectionName -NugetID $NugetID -Version $Version -Source $Source }
@@ -232,6 +241,7 @@ function New-ApexSQLSource
 
 function New-ApexSqlGitSourceControlConnection
 {
+    [CmdletBinding(SupportsShouldProcess)]
     param
     (
         [Parameter(Mandatory = $true)]
@@ -250,10 +260,10 @@ function New-ApexSqlGitSourceControlConnection
         [string] $Label,
 
         [Parameter(Mandatory = $true)]
-        [string] $UserName,
+        [string] $U,
 
         [Parameter(Mandatory = $true)]
-        [string] $Password
+        [string] $P
     )
 
     $connection = New-Object ApexSqlSourceControlConnection
@@ -263,13 +273,14 @@ function New-ApexSqlGitSourceControlConnection
     $connection.Project = $Project
     $connection.Branch = $Branch
     $connection.Label = $Label
-    $connection.UserName = $UserName
-    $connection.Password = $Password
+    $connection.UserName = $U
+    $connection.Password = $P
     return $connection
 }
 
 function New-ApexSqlTfsSourceControlConnection
 {
+    [CmdletBinding(SupportsShouldProcess)]
     param
     (
         [Parameter(Mandatory = $true)]
@@ -285,10 +296,10 @@ function New-ApexSqlTfsSourceControlConnection
         [string] $Label,
 
         [Parameter(Mandatory = $true)]
-        [string] $UserName,
+        [string] $U,
 
         [Parameter(Mandatory = $true)]
-        [string] $Password
+        [string] $P
     )
 
     $connection = New-Object ApexSqlSourceControlConnection
@@ -297,13 +308,14 @@ function New-ApexSqlTfsSourceControlConnection
     $connection.Server = $Server
     $connection.Project = $Project
     $connection.Label = $Label
-    $connection.UserName = $UserName
-    $connection.Password = $Password
+    $connection.UserName = $U
+    $connection.Password = $P
     return $connection
 }
 
 function New-ApexSqlMercurialSourceControlConnection
 {
+    [CmdletBinding(SupportsShouldProcess)]
     param
     (
         [Parameter(Mandatory = $true)]
@@ -319,10 +331,10 @@ function New-ApexSqlMercurialSourceControlConnection
         [string] $Label,
 
         [Parameter(Mandatory = $true)]
-        [string] $UserName,
+        [string] $U,
 
         [Parameter(Mandatory = $true)]
-        [string] $Password
+        [string] $P
     )
 
     $connection = New-Object ApexSqlSourceControlConnection
@@ -331,13 +343,14 @@ function New-ApexSqlMercurialSourceControlConnection
     $connection.Repository = $Repository
     $connection.Project = $Project
     $connection.Label = $Label
-    $connection.UserName = $UserName
-    $connection.Password = $Password
+    $connection.UserName = $U
+    $connection.Password = $P
     return $connection
 }
 
 function New-ApexSqlSubversionSourceControlConnection
 {
+    [CmdletBinding(SupportsShouldProcess)]
     param
     (
         [Parameter(Mandatory = $true)]
@@ -353,10 +366,10 @@ function New-ApexSqlSubversionSourceControlConnection
         [string] $Label,
 
         [Parameter(Mandatory = $true)]
-        [string] $UserName,
+        [string] $U,
 
         [Parameter(Mandatory = $true)]
-        [string] $Password
+        [string] $P
     )
 
     $connection = New-Object ApexSqlSourceControlConnection
@@ -365,13 +378,14 @@ function New-ApexSqlSubversionSourceControlConnection
     $connection.Repository = $Repository
     $connection.Project = $Project
     $connection.Label = $Label
-    $connection.UserName = $UserName
-    $connection.Password = $Password
+    $connection.UserName = $U
+    $connection.Password = $P
     return $connection
 }
 
 function New-ApexSqlPerforceSourceControlConnection
 {
+    [CmdletBinding(SupportsShouldProcess)]
     param
     (
         [Parameter(Mandatory = $true)]
@@ -390,10 +404,10 @@ function New-ApexSqlPerforceSourceControlConnection
         [string] $Label,
 
         [Parameter(Mandatory = $true)]
-        [string] $UserName,
+        [string] $U,
 
         [Parameter(Mandatory = $true)]
-        [string] $Password
+        [string] $P
     )
 
     $connection = New-Object ApexSqlSourceControlConnection
@@ -403,8 +417,8 @@ function New-ApexSqlPerforceSourceControlConnection
     $connection.Repository = $Repository
     $connection.Project = $Project
     $connection.Label = $Label
-    $connection.UserName = $UserName
-    $connection.Password = $Password
+    $connection.UserName = $U
+    $connection.Password = $P
     return $connection
 }
 
@@ -415,6 +429,7 @@ class ApexSqlFileConnection : ApexSqlConnection
 
 function New-ApexSqlFileConnection
 {
+    [CmdletBinding(SupportsShouldProcess)]
     param
     (
         [Parameter(Mandatory = $true)]
@@ -436,6 +451,7 @@ class ApexSqlSFConnection : ApexSqlConnection
 
 function New-ApexSqlSFConnection
 {
+    [CmdletBinding(SupportsShouldProcess)]
     param
     (
         [Parameter(Mandatory = $true)]
@@ -459,6 +475,7 @@ class ApexSqlNugetConnection : ApexSqlConnection
 
 function New-ApexSqlNugetConnection
 {
+    [CmdletBinding(SupportsShouldProcess)]
     param
     (
         [Parameter(Mandatory = $true)]
@@ -491,6 +508,7 @@ class ApexSqlNotificationSettings
 
 function New-ApexSQLNotificationSettings
 {
+    [CmdletBinding(SupportsShouldProcess)]
     param
     (
         [Parameter(Mandatory = $true)]
@@ -516,9 +534,10 @@ function New-ApexSQLNotificationSettings
     )
 
     $Password = (&{If(!$Password) { (Get-Pass -PasswordFile $PasswordFile) } Else {$Password}})
-    if ($Password -ne $null -and $Password -ne '')
+    if ($null -ne $Password -and $Password -ne '')
     {
-        $pass = $Password | ConvertTo-SecureString -AsPlainText -Force
+        $pass = New-Object System.Security.SecureString
+        $Password.ToCharArray() | ForEach-Object { $pass.AppendChar($_) }
         $cred = New-Object System.Management.Automation.PSCredential ($EmailAddress, $pass)
     }
     else
@@ -532,7 +551,6 @@ function New-ApexSQLNotificationSettings
     $settings.SmtpServer = $SmtpServer
     $settings.UseSSL     = $UseSSL
     $settings.Port       = $Port
-    Write-Host $Options
     $Options.NotificationSettings = $settings
     return $settings
 }
@@ -553,6 +571,7 @@ class ApexSqlOptions
 
 function New-ApexSqlOptions
 {
+    [CmdletBinding(SupportsShouldProcess)]
     param
     (
         [Parameter(Mandatory = $true)]
@@ -568,6 +587,11 @@ function New-ApexSqlOptions
     $options = New-Object -TypeName ApexSqlOptions
     $options.PipelineName = $PipelineName
     $options.ScriptDirectory = $global:currentDirectory
+
+    if (-not (Test-Path $global:nugetExePath))
+    {
+        throw "Incorrect nuget.exe file path defined in 'global:nugetExePath' variable."
+    }
 
     if (!$OutputLocation )
     {
@@ -608,28 +632,29 @@ function New-ApexSqlOptions
 
 function Initialize-Globals
 {
+    [CmdletBinding(SupportsShouldProcess)]
 	param
     (
         [string] $CurrentDirectory
     )
     $global:currentDirectory = $CurrentDirectory
-    $global:logPath = $null
     $global:StaticDataSource_ForDataDiff = $null
     $global:StaticDataPath_ForDataDiff = $null
     $global:SkippingList = $null
     $global:nuspec = $null
-    $global:nugetDbScriptFolderSource = $null
+    $global:nugetDatabaseScriptsSource = $null
     #Create and reset ResultSet
     $global:ResultSet = [ordered]@{}
-    if ($Options.Result -eq $null)
+    if ($null -eq $Options.Result)
     {
         $global:ResultSet.Clear()
-    }    
+    }
 }
 
 function GetSourceName
 {
     [CmdletBinding()]
+    [OutputType('System.String')]
 	param
 	(
         [Parameter(Mandatory = $true)]
@@ -656,7 +681,7 @@ function GetStaticDataFolderPath
     )
 
         [xml]$projecFile = Get-Content $Path
-        $SourceControllInfo = $projecFile.ApexSQLBuildProject.ProjectOptions.Options.Option | where { $_.id -eq "SourceControlConnection"}
+        $SourceControllInfo = $projecFile.ApexSQLBuildProject.ProjectOptions.Options.Option | Where-Object { $_.id -eq "SourceControlConnection"}
         $SourceFolder = $SourceControllInfo.ScConnectionInfo.SourceControlFolder
         return $SourceFolder + "\Tables\StaticData"
 }
@@ -676,8 +701,8 @@ function GetToolName
         "Test" {return "ApexSQL Unit Test"}
         "Script" {return "ApexSQL Script"}
         "Document" {return "ApexSQL Doc"}
-        "SchemaSync" {return "ApexSQL Diff"}
-        "DataSync" {return "ApexSQL Data Diff"}
+        "Sync" {return "ApexSQL Diff"}
+        "Sync data" {return "ApexSQL Data Diff"}
         "Package" {return "ApexSQL Package"}
         "Deploy" {return "ApexSQL Deploy"}
         default {return}
@@ -699,8 +724,8 @@ function GetStepName
         "Unit Test" {return "Test"}
         "Script" {return "Script"}
         "Doc" {return "Document"}
-        "Diff" {return "SchemaSync"}
-        "Data Diff" {return "DataSync"}
+        "Diff" {return "Sync"}
+        "Data Diff" {return "Sync data"}
         "Package" {return "Package"}
         "Deploy" {return "Deploy"}
         default {return}
@@ -720,7 +745,7 @@ function Get-Pass
         {
             $EncryptedPass = (Get-Content -Path $filePath)
             if ($EncryptedPass.Length -gt 0)
-            {     
+            {
                 $DecryptedPass = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR( (ConvertTo-SecureString $EncryptedPass) ))
             }
             else
@@ -746,9 +771,9 @@ function Get-Pass
         Out-File -FilePath $Options.OutputLogFile -InputObject $msg -Append
         exit(1)
     }
-    
-    
-    return $DecryptedPass 
+
+
+    return $DecryptedPass
 }
 
 function Get-ApexSQLToolLocation
@@ -758,36 +783,37 @@ function Get-ApexSQLToolLocation
         [Parameter(Mandatory = $true)]
         [String] $ApplicationName
     )
-    $key = "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ApexSQL $($ApplicationName)_is1"
+    $key = Get-ChildItem HKLM:SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ -Recurse |Where-Object {$_.PSChildName -like "ApexSQL $($ApplicationName)*_is1"}
+    $key = $key.Name
     if (Test-Path "HKLM:\$Key")
     {
 		$ApplicationPath = (Get-ItemProperty -Path "HKLM:\$key" -Name InstallLocation).InstallLocation
-	} 
-    else 
+	}
+    else
     {
 		$reg = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, [Microsoft.Win32.RegistryView]::Registry64)
-		
+
 		$regKey= $reg.OpenSubKey("$key")
-		if ($regKey) 
+		if ($regKey)
         {
-			$ApplicationPath = $regKey.GetValue("InstallLocation")  
-		} 
-        else 
+			$ApplicationPath = $regKey.GetValue("InstallLocation")
+		}
+        else
         {
 			$reg = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, [Microsoft.Win32.RegistryView]::Registry32)
 			$regKey= $reg.OpenSubKey("$key")
-			if ($regKey) 
+			if ($regKey)
             {
-				$ApplicationPath = $regKey.GetValue("InstallLocation")  
-			} 
-            else 
+				$ApplicationPath = $regKey.GetValue("InstallLocation")
+			}
+            else
             {
 				Out-File -FilePath $Options.OutputLogFile -InputObject "ApexSQL $ApplicationName is not installed" -Append
                 $Options.ErrorCodes += @("Not installed")
                 $Options.FailedSteps += @("ApexSQL $ApplicationName")
                 $Options.Result = "Failure"
                 return $null
-			}  
+			}
 		}
 	}
     if ($ApplicationPath)
@@ -798,6 +824,7 @@ function Get-ApexSQLToolLocation
 
 function Start-ApexSQLTool
 {
+    [CmdletBinding(SupportsShouldProcess)]
 	param
 	(
 		[Parameter(Mandatory = $true)]
@@ -811,12 +838,15 @@ function Start-ApexSQLTool
         [Parameter(Mandatory = $false)]
 		[bool] $FromPackage,
         [Parameter(Mandatory = $false)]
-		[bool] $Silent
+		[bool] $Silent,
+        [Parameter(Mandatory = $false)]
+		[string] $OutputFiles
 	)
-    
+
 
 	$logFile = "$OutputLocation\$($PipelineName).log"
-    
+    $thisIsPackageStep = $false
+
 	$toolLocation = Get-ApexSQLToolLocation $ToolName
     if (-not $toolLocation)
     {
@@ -830,6 +860,7 @@ function Start-ApexSQLTool
         {
             if ($FromPackage -eq $true -and $ToolName -eq "Data Diff")
                         {
+                        $thisIsPackageStep = $true
 	        $info = "`r`n`r`n`t`t----- Started collecting static data -----`r`n" +
                         "`t`t------------------------------------------`r`n"
         }
@@ -849,16 +880,20 @@ function Start-ApexSQLTool
 	Out-File -FilePath $Options.OutputLogFile -InputObject $info -Append
 	$output = Invoke-Expression -Command ("& `"$($toolLocation)`" $ToolParameters")
 	Out-File -FilePath $Options.OutputLogFile -InputObject $output -Append
-	
-	if ($lastExitCode -ne 0 -and -not ($lastExitCode -eq 104 -and $ToolName -eq "Generate")) 
+
+	if ($lastExitCode -ne 0 -and -not ($lastExitCode -eq 104 -and $ToolName -eq "Generate"))
 	{
 		$Options.FailedSteps += @("ApexSQL $ToolName")
         $Options.ErrorCodes += @($lastExitCode)
 		if ($StopOnFail)
 		{
-			$error = "`r`nApexSQL $ToolName failed.`r`nThe process is canceled due to failure return code: $lastExitCode"
-			Out-File -FilePath $Options.OutputLogFile -InputObject $error -Append
+			$errorText = "`r`nApexSQL $ToolName failed.`r`nThe process is canceled due to failure return code: $lastExitCode"
+			Out-File -FilePath $Options.OutputLogFile -InputObject $errorText -Append
 			$Options.Result = "Failure"
+            $stepName = GetStepName -Tool $ToolName
+            $msg = "$stepName step failed."
+            Write-Warning $msg
+            $global:ResultSet.Add($global:ResultSet.Count, @{Step=$stepName; Result='Failure'; ErrorCode=$lastExitCode;})
             return $false
 		}
 		else
@@ -868,14 +903,18 @@ function Start-ApexSQLTool
 	}
     else
     {
+        if ($thisIsPackageStep)
+        {
+            $global:ResultSet.Add($global:ResultSet.Count, @{Step="Package"; Result='Success'; OutputFiles=(&{ if ($null -ne $OutputFiles) {"$($OutputFiles)"} Else {""}} )})
+        }
         if ($ToolName -ne "Script" -and $Silent -ne $true -and ($FromPackage -eq $true -and $ToolName -eq "Data Diff") -ne $true)
         {
 
             $stepName = GetStepName -Tool $ToolName
             $msg = "$stepName step passed."
-            Write-Host $msg
+            Write-Verbose $msg
             Out-File -FilePath $Options.OutputLogFile -InputObject "`r`n##### $($msg) #####`r`n" -Append
-
+            $global:ResultSet.Add($global:ResultSet.Count, @{Step=$stepName; Result='Success'; OutputFiles=(&{ if ($null -ne $OutputFiles) {"$($OutputFiles)"} Else {""}} )})
         }
     }
     return $true
@@ -883,7 +922,7 @@ function Start-ApexSQLTool
 
 function DisplayCommandLineArgs()
 {
-    $msg = 
+    $msg =
     "`t`t- NuGet ID: $nugetId`r`n" +
     "`t`t- Version: $nugetVersion`r`n" +
     "`t`t- Source: $($Options.OutputLocation)`r`n" +
@@ -897,17 +936,17 @@ function DisplayCommandLineArgs()
     }
     else
     {
-        # Assumption, nuget.exe is the current folder where this file is.
-        $global:nugetExe = Join-Path $source "nuget" 
+        # Assumption, nuget.exe is the current folder Where-Object this file is.
+        $global:nugetExe = Join-Path $source "nuget"
     }
 
     $global:nugetExe
 
     if (!(Test-Path $global:nugetExe -PathType leaf))
     {
-        $error = "'nuget.exe' file was not found. Please provide correct 'nuget.exe' file path.`r`nProces terminated."
-        Write-Warning -Message $error
-        Out-File -FilePath $Options.OutputLogFile -InputObject "`r`n`t$($error)" -Append
+        $errorText = "'nuget.exe' file was not found. Please provide correct 'nuget.exe' file path.`r`nProces terminated."
+        Write-Warning -Message $errorText
+        Out-File -FilePath $Options.OutputLogFile -InputObject "`r`n`t$($errorText)" -Append
         $Options.ErrorCodes += @($LastExitCode)
         $Options.FailedSteps += @("ApexSQL Package")
         $Options.Result = "Failure"
@@ -934,30 +973,48 @@ function CleanUp()
             "... Removing $combined."
             Remove-Item $combined
         }
-        
+
         "... Done!"
     }
 }
 
 function PackageTheSpecification()
 {
-    #Copy .nuspec file as template to output directory
-    Copy-Item "C:\Program Files\ApexSQL\ApexSQL DevOps toolkit\Modules\ApexSQL_DevOps\Package.nuspec" $Options.OutputLocation
+    # Create template .nuspec file
+    $nuspecContent = 
+@'
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>$id$</id>
+    <version>$version$</version>
+    <authors>$authors$</authors>
+    <owners>$owners$</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>$description$</description>
+    <releaseNotes>$releaseNotes$</releaseNotes>
+    <copyright>Copyright 2017 - ApexSQL LLC</copyright>
+    <tags></tags>
+  </metadata>
+</package>
+'@
+
+    New-Item -Path $Options.OutputLocation -Name "Package.nuspec" -ItemType "file" -Value $nuspecContent
 
     $shema = $null
     $data = $null
-    $consolidatedScript = "$($Options.OutputLocation)\Consolidated_script.sql" 
+    $consolidatedScript = "$($Options.OutputLocation)\Consolidated_script.sql"
     if ($Consolidate)
     {
         $shema = Get-ChildItem -Path $Options.OutputLocation -Filter SchemaSync_*.sql
         $data =Get-ChildItem -Path $Options.OutputLocation -Filter DataSync_*.sql
 
-        if ($shema -ne $null)
+        if ($null -ne $shema)
         {
             $content += Get-Content -Path "$($Options.OutputLocation)\$shema"
             Remove-Item "$($Options.OutputLocation)\$shema"
         }
-        if ($data -ne $null)
+        if ($null -ne $data)
         {
             $content += Get-Content -Path "$($Options.OutputLocation)\$data"
             Remove-Item "$($Options.OutputLocation)\$data"
@@ -966,11 +1023,11 @@ function PackageTheSpecification()
         {
             $content > $consolidatedScript
         }
-        $content = $null   
+        $content = $null
     }
 
 
-    #Create list of all files included in .nupkg 
+    #Create list of all files included in .nupkg
     #(this is all files from all included steps excluding Project.nuspec which serves as a template and being removed)
     $files = "`r`nContent of this package version:`r`n"
     $content = Get-ChildItem $Options.OutputLocation -Exclude *.nuspec, *_job_summary.log
@@ -980,7 +1037,7 @@ function PackageTheSpecification()
         $fileNames += "`r`n`t`t- $($file.Name)"
     }
 
-    if ($content -ne $null)
+    if ($null -ne $content)
     {
         $msg = "`tStarted creating the package ...`r`n"
         Out-File -FilePath $Options.OutputLogFile -InputObject $msg -Append
@@ -1002,16 +1059,16 @@ function PackageTheSpecification()
         try
         {
             #Remove log file (and store its content to temp variable in order to get back the content to log file)
-            $logContent = Get-Content $Options.OutputLogFile -Raw 
+            $logContent = Get-Content $Options.OutputLogFile -Raw
             Remove-Item $Options.OutputLogFile
 
             #Execute packing
             &$nugetExe pack "$($Options.OutputLocation)" -Properties id=$nugetId -Properties version=$nugetVersion -Properties authors=$nugetAuthors -Properties owners=$nugetOwners -Properties description=$files -Properties releaseNotes=$nugetReleaseNotes -OutputDirectory "$($Options.OutputLocation)"
-    
+
             #Get back log content to log file
             $logContent > $Options.OutputLogFile
             $logContent = $null
-        
+
             $msg = "`tPackage successfully created."
             Out-File -FilePath $Options.OutputLogFile -InputObject $msg -Append
             $msg = "`r`n`tContent of this package version:" + $fileNames
@@ -1023,11 +1080,11 @@ function PackageTheSpecification()
             $logContent > $Options.OutputLogFile
             $logContent = $null
 
-            $error = "Creating the package failed.`r`n"
-            Write-Warning -Message $error
-            Out-File -FilePath $Options.OutputLogFile -InputObject "`t$($error)" -Append
-        
-            if ($LASTERRORCODE -eq $null -and $LASTERRORCODE -lt 0)
+            $errorText = "Creating the package failed.`r`n"
+            Write-Warning -Message $errorText
+            Out-File -FilePath $Options.OutputLogFile -InputObject "`t$($errorText)" -Append
+
+            if ($null -eq $LASTERRORCODE -and $LASTERRORCODE -lt 0)
             {
                 $lastReturnCode = 1
             }
@@ -1040,11 +1097,11 @@ function PackageTheSpecification()
 
     else
     {
-        $error = "Creating the package failed. Package can not be empty.`r`n"
-        Write-Warning -Message $error
-        Out-File -FilePath $Options.OutputLogFile -InputObject "`t$($error)" -Append
+        $errorText = "Creating the package failed. Package can not be empty.`r`n"
+        Write-Warning -Message $errorText
+        Out-File -FilePath $Options.OutputLogFile -InputObject "`t$($errorText)" -Append
         $lastReturnCode = $LASTERRORCODE
-        if ($LASTERRORCODE -eq $null -and $LASTERRORCODE -lt 0)
+        if ($null -eq $LASTERRORCODE -and $LASTERRORCODE -lt 0)
         {
             $lastReturnCode = 1
         }
@@ -1053,20 +1110,21 @@ function PackageTheSpecification()
         $Options.Result = "Failure"
         return
     }
-    
+
 
     #Remove templete .nuspec file
     Remove-Item "$($Options.OutputLocation)\Package.nuspec"
-    
+
     #Get .nupkg file name to add it to $outputs
     $packageName = @(Get-ChildItem "$($Options.OutputLocation)" -Filter *.nupkg)
+    $global:ResultSet[$global:ResultSet.Count - 1]["OutputFiles"]=$packageName.Name
     $packageName = $packageName.FullName
     $Options.PackageFilePath = $packageName
-    
+
     #If DoNotRemoveContents switch missing remove all files (except .nupkg and .log)
     if (!$DoNotRemoveContents)
     {
-        Get-Childitem "$($Options.OutputLocation)" -Exclude *.nupkg, *_job_summary.log | foreach ($_) {remove-item $_.fullname -Recurse -Force}
+        Get-Childitem "$($Options.OutputLocation)" -Exclude *.nupkg, *_job_summary.log | ForEach-Object ($_) {remove-item $_.fullname -Recurse -Force}
     }
 }
 
@@ -1084,9 +1142,9 @@ function PublishPackage()
 
     if ($ApiKey -eq "")
     {
-        $error = "No NuGet server api key provided - so not pushing anything up."
-        Write-Warning -Message $error
-        Out-File -FilePath $Options.OutputLogFile -InputObject $error -Append 
+        $errorText = "No NuGet server api key provided - so not pushing anything up."
+        Write-Warning -Message $errorText
+        Out-File -FilePath $Options.OutputLogFile -InputObject $errorText -Append
         if ($PSCmdlet.MyInvocation.ExpectingInput)
         {
             return $Options
@@ -1107,9 +1165,9 @@ function PublishPackage()
 
     if ($files.Count -eq 0)
     {
-        $error = "No nupkg files found in the directory: $destination`r`n`tTerminating process."
-        Write-Warning -Message $error
-        Out-File -FilePath $Options.OutputLogFile -InputObject "`t`t$($error)" -Append 
+        $errorText = "No nupkg files found in the directory: $destination`r`n`tTerminating process."
+        Write-Warning -Message $errorText
+        Out-File -FilePath $Options.OutputLogFile -InputObject "`t`t$($errorText)" -Append
         $Options.ErrorCodes += 1
         $Options.FailedSteps += @("ApexSQL Package")
         $Options.Result = "Failure"
@@ -1136,9 +1194,9 @@ function PublishPackage()
         }
         catch
         {
-            $error = "`tPackage publishing failed: `r`n`t`t>>$($_.Exception.Message)<<"
-            Write-Warning -Message $error
-            Out-File -FilePath $Options.OutputLogFile -InputObject $error -Append 
+            $errorText = "`tPackage publishing failed: `r`n`t`t>>$($_.Exception.Message)<<"
+            Write-Warning -Message $errorText
+            Out-File -FilePath $Options.OutputLogFile -InputObject $errorText -Append
             $lastReturnCode = $LastExitCode
             if ($LastExitCode -ne 0 -and $LastExitCode -lt 0)
             {
@@ -1150,11 +1208,11 @@ function PublishPackage()
         }
     }
 
-    
+
 }
 
 function ExtractNupkg ()
-{ 
+{
     param
     (
         [string] $OutputLocation,
@@ -1167,7 +1225,7 @@ function ExtractNupkg ()
     $msg = "`r`n`t----------`r`n`r`n`tStarted Extracting the package ...`r`n"
     Out-File -FilePath $Options.OutputLogFile -InputObject $msg -Append
 
-    if (!$Source -or $Source -eq $null -or $Source -eq "")
+    if (!$Source -or $null -eq $Source -or $Source -eq "")
     {
         $Source = "$($OutputLocation)\\"
     }
@@ -1182,9 +1240,9 @@ function ExtractNupkg ()
         }
         catch
         {
-            $error = "`tThere was some problem in extracting the .nupkg file.`r`n`t`t>>$($_.Exception.Message)<<"
-            Write-Warning -Message $error
-            Out-File -FilePath $Options.OutputLogFile -InputObject $error -Append 
+            $errorText = "`tThere was some problem in extracting the .nupkg file.`r`n`t`t>>$($_.Exception.Message)<<"
+            Write-Warning -Message $errorText
+            Out-File -FilePath $Options.OutputLogFile -InputObject $errorText -Append
             $Options.ErrorCodes += 1
             $Options.FailedSteps += @("Extracking the package")
             $Options.Result = "Failure"
@@ -1200,9 +1258,9 @@ function ExtractNupkg ()
         }
         catch
         {
-            $error = "`tThere was some problem in extracting the .nupkg file.`r`n`t`t>>$($_.Exception.Message)<<"
-            Write-Warning -Message $error
-            Out-File -FilePath $Options.OutputLogFile -InputObject $error -Append 
+            $errorText = "`tThere was some problem in extracting the .nupkg file.`r`n`t`t>>$($_.Exception.Message)<<"
+            Write-Warning -Message $errorText
+            Out-File -FilePath $Options.OutputLogFile -InputObject $errorText -Append
             if ($PSCmdlet.MyInvocation.ExpectingInput)
             {
                 return $Options
@@ -1222,7 +1280,7 @@ function ClearExtractedContents ()
         [string] $path
     )
 
-    Get-Childitem $path | where-object {$_.Name -notlike "*DbScriptFolder*"} | foreach ($_) {remove-item $_.fullname -Recurse }
+    Get-Childitem $path | Where-Object {$_.Name -notlike "*DatabaseScripts*"} | ForEach-Object ($_) {remove-item $_.fullname -Recurse }
 }
 
 function RemoveSnapshots ()
@@ -1231,19 +1289,78 @@ function RemoveSnapshots ()
     (
         [string] $Location
     )
-    
+
     $Db_SnapShot = "$($Location)\Db_SnapShot.axsnp"
     $Db_SnapShot_Diff = "$($Location)\Db_SnapShot_Diff.axdsn"
 
     #Remove snapshots
-    if (Test-Path $Db_SnapShot) 
+    if (Test-Path $Db_SnapShot)
     {
       Remove-Item $Db_SnapShot
     }
-    if (Test-Path $Db_SnapShot_Diff) 
+    if (Test-Path $Db_SnapShot_Diff)
     {
       Remove-Item $Db_SnapShot_Diff
     }
+}
+
+function Set-ProjectSwitch
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [ApexSqlOptions] $Options,
+        [string] $ProjectFile,
+        [ApexSqlConnection] $BuildStepSource,
+        [Switch] $ReviewStep
+    )
+    $project = ""
+	if ($ProjectFile)
+	{
+        $ProjectFile = $Options.ScriptDirectory + "\Projects\" + $ProjectFile
+        if (-not $ReviewStep)
+        {
+            $project = "/project:""$ProjectFile"""
+        }
+        else
+        {
+            $project = "/rb:""$ProjectFile"""
+        }
+        
+        if ($null -eq $BuildStepSource)
+        {
+            $global:StaticDataPath_ForDataDiff = GetStaticDataFolderPath -Path "$($ProjectFile)"
+        }
+    }
+    return $project
+}
+
+function Set-AdditionalSwitch
+{
+    [CmdletBinding()]
+    param
+    (
+        [string] $Additional
+    )
+    $additional = ""
+	if ($Additional)
+	{
+        $additional = $Additional
+    }
+    return $additional
+}
+
+function LogFail
+{
+    [CmdletBinding()]
+    param
+    (
+        [string] $ErrorText,
+        [string] $FilePath
+    )
+    Write-Warning -Message $errorText
+    Out-File -FilePath $FilePath -InputObject $ErrorText -Append
 }
 
 #endregion
@@ -1302,9 +1419,7 @@ function Invoke-ApexSqlBuildStep
 	)
     if ($Options.Result -eq "Failure")
     {
-        $error = "Skipping ApexSQL Build step due to failure in the pipeline"
-        Write-Warning -Message $error
-        Out-File -FilePath $Options.OutputLogFile -InputObject $error -Append
+        LogFail -FilePath $Options.OutputLogFile -ErrorText "Skipping ApexSQL Build step due to failure in the pipeline"
         if ($PSCmdlet.MyInvocation.ExpectingInput)
         {
             return $Options
@@ -1315,46 +1430,16 @@ function Invoke-ApexSqlBuildStep
         }
     }
 
-    $project = ""
-    #If ProjectFile (that means that $Source and $Database are NOT created)
-    #$Source doesn't so matter since source details will be picked from project file
-    #It is important to create $Database object for further use (next steps)
-	if ($ProjectFile)
-	{
-        $ProjectFile = $options.ScriptDirectory + "\Projects\" + $ProjectFile
-        $project = " /project:""$ProjectFile"""
-        if ($Source -eq $null)
-        {
-            $global:StaticDataPath_ForDataDiff = GetStaticDataFolderPath -Path "$($ProjectFile)"
-        }
-	}
-    else
+    if (($null -eq $Source -and $null -eq $Database) -and $null -eq $ProjectFile)
     {
-        #Store Source for Static Data (from entered parameters)
-        $global:StaticDataSource_ForDataDiff = $Source
-    }
-    
-    if (($Source -eq $null -and $Database -eq $null) -and $ProjectFile -eq $null)
-    {
-        $error = "Source and Database or a Project file must be set"
-        Write-Warning -Message $error
-        Out-File -FilePath $Options.OutputLogFile -InputObject $error -Append
-        if ($PSCmdlet.MyInvocation.ExpectingInput)
-        {
-            return $Options
-        }
-        else
-        {
-            return
-        }
+        LogFail -FilePath $Options.OutputLogFile -ErrorText "Source and Database or a Project file must be set"
+        return $Options
     }
 
-	$additional = ""
-	if ($AdditionalOptions)
-	{
-		$additional = " $AdditionalOptions"
-	}
+    $project = Set-ProjectSwitch -Options $Options -ProjectFile $ProjectFile -BuildStepSource $Source
+    $additional = Set-AdditionalSwitch -Additional $AdditionalOptions
 
+    #Step-related params
     $static_data = " /isd "
     if ($ExcludeStaticData)
     {
@@ -1363,8 +1448,8 @@ function Invoke-ApexSqlBuildStep
 
     #Configure Source parameters
     $sourceType = "sc"
-    if ($Source -ne $null)
-    { 
+    if ($null -ne $Source)
+    {
         if ($Source.GetType() -eq [ApexSqlFileConnection])
         {
             $sourceType = "sql"
@@ -1381,33 +1466,24 @@ function Invoke-ApexSqlBuildStep
 
     #Configure Database parameters
     $databaseType = "db"
-    if ($Database -ne $null)
+    if ($null -ne $Database)
     {
 	    $databaseParams = $Database.AsParameters()
-    } 
+    }
 
-    #Output files names
-    $connName = @{$true = "Project"; $false = "$($Source.ConnectionName)_$($Database.ConnectionName)" }[!$Source -and !$Database]
-    $scriptName = "$($Options.OutputLocation)\Build_$($connName)_BuildScript.sql"
 
-    
 
     #Full tool parameters
-    $outScript = ""
-    if (!$NoScript)
-    {
-        $outScript = " /on:""$($scriptName)"" "
-    }
-    $toolParameters = 
-    @{$true = "/source_type:$sourceType $sourceParams /output_type:$databaseType $databaseParams "; $false = " $project "}[!$ProjectFile] + 
-	    " /drop_if_exists $additional $drop  $outScript  $static_data /script_permissions /v /f"
+    $toolParameters =
+    @{$true = "/source_type:$sourceType $sourceParams /output_type:$databaseType $databaseParams "; $false = " $project "}[!$ProjectFile] +
+	    " $additional $static_data  /drop_if_exists /script_permissions /v /f"
 	$params = @{
 		ToolName = "Build"
-		ToolParameters = $toolParameters 
+		ToolParameters = $toolParameters
 		Options = $Options
 		StopOnFail = $StopOnFail
 	}
- 
+
     #Execute the tool
 	Start-ApexSQLTool @params
     if ($PSCmdlet.MyInvocation.ExpectingInput)
@@ -1415,13 +1491,7 @@ function Invoke-ApexSqlBuildStep
         return $Options
     }
 
-    #Store output files
-    $outputs = ""
-    if (!$NoScript)
-    {
-        $outputs = "$($scriptName)"
-    }
-    $global:ResultSet.Add($global:ResultSet.Count, @("Build", (&{ if ($Options.Result-ne $null) {"$($Options.Result)"} Else {""}} ), (&{ if ($outputs -ne $null) {"$($outputs)"} Else {""}}), (&{ if ($Options.ErrorCodes -ne $null) {"$($Options.ErrorCodes)"} Else {""}} )))
+    #$global:ResultSet.Add($global:ResultSet.Count, @("Build", (&{ if ($null -ne $Options.Result) {"$($Options.Result)"} Else {""}} ), $null, (&{ if ($null -ne $Options.ErrorCodes) {"$($Options.ErrorCodes)"} Else {""}} )))
 }
 
 function Invoke-ApexSqlPopulateStep
@@ -1455,9 +1525,8 @@ function Invoke-ApexSqlPopulateStep
 	)
     if ($Options.Result -eq "Failure")
     {
-        $error = "Skipping ApexSQL Populate step due to failure in the pipeline"
-        Write-Warning -Message $error
-        Out-File -FilePath $Options.OutputLogFile -InputObject $error -Append
+        $global:SkippingList += "`tPopulate`r`n"
+        LogFail -FilePath $Options.OutputLogFile -ErrorText "Skipping ApexSQL Populate step due to failure in the pipeline"
         if ($PSCmdlet.MyInvocation.ExpectingInput)
         {
             return $Options
@@ -1467,40 +1536,26 @@ function Invoke-ApexSqlPopulateStep
             return
         }
     }
-	$project = ""
-	if ($ProjectFile)
-	{
-        $ProjectFile = $options.ScriptDirectory + "\Projects\" + $ProjectFile
-        $project = " /project:""$ProjectFile"""
-	}
-	$additional = ""
-	if ($AdditionalOptions)
-	{
-		$additional = " $AdditionalOptions"
-	}
+
+	$project = Set-ProjectSwitch -Options $Options -ProjectFile $ProjectFile
+    $additional = Set-AdditionalSwitch -Additional $AdditionalOptions
+
     $fillEmpty = ""
     if (!$FillAllTables)
     {
-       $fillEmpty = " /foet" 
+       $fillEmpty = " /foet"
     }
 
     #Output files names
     $scriptName = "$($Options.OutputLocation)\Populate_$($Database.ConnectionName)_PopulateScript.sql"
 
-    #Full tool parameters
-    $outScript = ""
-    if (!$NoScript)
-    {
-        $outScript = "/ot:SQL /on:""$($scriptName)"" /eae"
-    }
-
     $db = (&{ if ($Database) {"$($Database.AsParameters()) "} Else {""}} )
     $rows = (&{ if ($RowCount) {"/r:$RowCount "} Else {""}} )
 
-	$toolParameters = "$($db) $($rows) $fillEmpty$project$additional $($outScript) /v /f "
+	$toolParameters = "$($db) $($rows) $fillEmpty $project $additional /v /f "
 	$params = @{
 		ToolName = "Generate"
-		ToolParameters = $toolParameters 
+		ToolParameters = $toolParameters
 		Options = $Options
 		StopOnFail = $StopOnFail
 	}
@@ -1518,14 +1573,6 @@ function Invoke-ApexSqlPopulateStep
     {
         return $Options
     }
-
-    #Store output files
-    $outputs =""
-    if (!$NoScript)
-    {
-        $outputs += "$($scriptName)"
-    }
-    $global:ResultSet.Add($global:ResultSet.Count, @("Populate", (&{ if ($Options.Result-ne $null) {"$($Options.Result)"} Else {""}} ), (&{ if ($outputs -ne $null) {"$($outputs)"} Else {""}}), (&{ if ($Options.ErrorCodes -ne $null) {"$($Options.ErrorCodes)"} Else {""}} )))
 }
 
 function Invoke-ApexSqlAuditStep
@@ -1553,7 +1600,7 @@ function Invoke-ApexSqlAuditStep
 
         [Parameter(Mandatory = $false)]
 		[switch] $NoReport,
-    
+
         [Parameter(Mandatory = $false)]
 		[switch] $OverwriteExistingTriggers,
 
@@ -1564,9 +1611,7 @@ function Invoke-ApexSqlAuditStep
     if ($Options.Result -eq "Failure")
     {
         $global:SkippingList += "`tAudit`r`n"
-        $error = "Skipping ApexSQL Audit step due to failure in the pipeline"
-        Write-Warning -Message $error
-        Out-File -FilePath $Options.OutputLogFile -InputObject $error -Append
+        LogFail -FilePath $Options.OutputLogFile -ErrorText "Skipping ApexSQL Audit step due to failure in the pipeline"
         if ($PSCmdlet.MyInvocation.ExpectingInput)
         {
             return $Options
@@ -1576,30 +1621,17 @@ function Invoke-ApexSqlAuditStep
             return
         }
     }
-    $project = ""
-    if ($ProjectFile)
-    {
-        $ProjectFile = $options.ScriptDirectory + "\Projects\" + $ProjectFile
-        $project = " /project:""$ProjectFile"""
-    }
-    $additional = ""
-    if ($AdditionalOptions)
-    {
-       $additional = " $AdditionalOptions"
-    }
+
+    $project = Set-ProjectSwitch -Options $Options -ProjectFile $ProjectFile
+    $additional = Set-AdditionalSwitch -Additional $AdditionalOptions
 
     $db = (&{ if ($Database) {"$($Database.AsParameters())"} Else {""}} )
 
 
     #Output files names
-    $reportName = "$($Options.OutputLocation)\Audit_$($Database.ConnectionName)_AuditReport.pdf"
+    $reportName = "$($Options.OutputLocation)\AuditReport.pdf"
 
     #Full tool parameters
-    $outScript = ""
-    if (!$NoScript)
-    {
-        $outScript = ""
-    }
     $outReport = ""
     if (!$NoReport)
     {
@@ -1615,32 +1647,21 @@ function Invoke-ApexSqlAuditStep
     {
         $et = " /et:$($ExcludeTables) "
     }
-    $toolParameters = "$($db)$project$additional /at $($eat) $($et) $outReport /v /f"
+    $toolParameters = "$($db) $project $additional /at $($eat) $($et) $outReport /v /f"
     $params = @{
         ToolName = "Trigger"
-        ToolParameters = $toolParameters 
+        ToolParameters = $toolParameters
         Options = $Options
         StopOnFail = $StopOnFail
+        OutputFiles = if ($NoReport) {""} else {"AuditReport.pdf"}
     }
-    
+
     #Execute the tool
     Start-ApexSQLTool @params
     if ($PSCmdlet.MyInvocation.ExpectingInput)
     {
         return $Options
     }
-
-    #Store output files
-    $outputs = ""
-    if (!$NoScript)
-    {
-        $outputs += ""
-    }
-    if (!$NoReport)
-    {
-        $outputs += $reportName
-    }
-    $global:ResultSet.Add($global:ResultSet.Count, @("Audit", (&{ if ($Options.Result-ne $null) {"$($Options.Result)"} Else {""}} ), (&{ if ($outputs -ne $null) {"$($outputs)"} Else {""}}), (&{ if ($Options.ErrorCodes -ne $null) {"$($Options.ErrorCodes)"} Else {""}} )))
 }
 
 function Invoke-ApexSqlReviewStep
@@ -1678,9 +1699,7 @@ function Invoke-ApexSqlReviewStep
     if ($Options.Result -eq "Failure")
     {
         $global:SkippingList += "`tReview`r`n"
-        $error = "Skipping ApexSQL Review step due to failure in the pipeline"
-        Write-Warning -Message $error
-        Out-File -FilePath $Options.OutputLogFile -InputObject $error -Append
+        LogFail -FilePath $Options.OutputLogFile -ErrorText "Skipping ApexSQL Review step due to failure in the pipeline"
         if ($PSCmdlet.MyInvocation.ExpectingInput)
         {
             return $Options
@@ -1690,21 +1709,12 @@ function Invoke-ApexSqlReviewStep
             return
         }
     }
-	$project = ""
-	if ($ProjectFile)
-	{
-		$ProjectFile = $options.ScriptDirectory + "\Projects\" + $ProjectFile
-        $project = " /project:""$ProjectFile"""
-	}
-    
-	$additional = ""
-	if ($AdditionalOptions)
-	{
-		$additional = $AdditionalOptions
-	}
-    
+
+    $project = Set-ProjectSwitch -Options $Options -ProjectFile $ProjectFile -ReviewStep
+    $additional = Set-AdditionalSwitch -Additional $AdditionalOptions
+
     #Output files names
-    $reportName = "$($Options.OutputLocation)\Review_$($Database.ConnectionName)_ReviewResults.html"
+    $reportName = "$($Options.OutputLocation)\ReviewReport.html"
     $scriptName = "$($Options.OutputLocation)\Review_$($Database.ConnectionName)_FixScript.sql"
 
     #Report contents
@@ -1728,28 +1738,21 @@ function Invoke-ApexSqlReviewStep
     {
         $outReport = "/ot:h /on:""$($reportName)"""
     }
-	$toolParameters = " $($Database.AsParameters()) $($additional) /rb:""$($ProjectFile)"" $($outReport) $($reportContents) /v /f"
+	$toolParameters = " $($Database.AsParameters()) $project $($additional) $($outReport) $($reportContents) /v /f"
 	$params = @{
 		ToolName = "Enforce"
-		ToolParameters = $toolParameters 
+		ToolParameters = $toolParameters
 		Options = $Options
 		StopOnFail = $StopOnFail
+        OutputFiles = "ReviewReport.html"
 	}
-    
+
     #Execute the tool
     Start-ApexSQLTool @params
     if ($PSCmdlet.MyInvocation.ExpectingInput)
     {
         return $Options
     }
-
-    #Store output files
-    $outputs = ""
-    if (!$NoReport)
-    {
-        $outputs = $reportName
-    }
-    $global:ResultSet.Add($global:ResultSet.Count, @("Review", $($Options.Result), $($outputs), (&{ if ($Options.ErrorCodes -ne $null) {"$($Options.ErrorCodes)"} Else {""}} )))
 }
 
 function Invoke-ApexSqlTestStep
@@ -1781,18 +1784,12 @@ function Invoke-ApexSqlTestStep
     if ($Options.Result -eq "Failure")
     {
         $global:SkippingList += "`tTest`r`n"
-        $error = "Skipping ApexSQL Test step due to failure in the pipeline"
-        Write-Warning -Message $error
-        Out-File -FilePath $Options.OutputLogFile -InputObject $error -Append
-        if ($PSCmdlet.MyInvocation.ExpectingInput)
-        {
-            return $Options
-        }
-        else
-        {
-            return
-        }
+        LogFail -FilePath $Options.OutputLogFile -ErrorText "Skipping ApexSQL Test step due to failure in the pipeline"
+        return $Options
     }
+
+    $project = Set-ProjectSwitch -Options $Options -ProjectFile $ProjectFile
+    $additional = Set-AdditionalSwitch -Additional $AdditionalOptions
 
     #sqlCop to install
 	$sqlCop = ""
@@ -1800,50 +1797,31 @@ function Invoke-ApexSqlTestStep
 	{
 		$sqlCop = " /install_sqlcop"
 	}
-    
-    if ($ProjectFile)
-	{
-		$ProjectFile = $options.ScriptDirectory + "\Projects\" + $ProjectFile
-        $project = " /project:""$ProjectFile"""
-	}
-
-	$additional = ""
-	if ($AdditionalOptions)
-	{
-		$additional = " $AdditionalOptions"
-	}
 
     #Output files names
-    $testReport = "$($Options.OutputLocation)\Test_$($Database.ConnectionName)_TestResults.xml"
+    $testReport = "$($Options.OutputLocation)\TestReport.xml"
 
     #Full tool parameters
     $outReport = ""
     if (!$NoReport)
 	{
-        $outReport = "/or:""$($testReport)""" 
+        $outReport = "/or:""$($testReport)"""
     }
-    $toolParameters = "$($Database.AsParameters()) /install_tsqlt $outReport $sqlCop$project$additional /v /f"
+    $toolParameters = "$($Database.AsParameters()) $outReport $sqlCop $project $additional /install_tsqlt /v /f"
 	$params = @{
 		ToolName = "Unit Test"
-		ToolParameters = $toolParameters 
+		ToolParameters = $toolParameters
 		Options = $Options
 		StopOnFail = $StopOnFail
+        OutputFiles = "TestReport.xml"
 	}
-	
+
     #Execute the tool
     Start-ApexSQLTool @params
     if ($PSCmdlet.MyInvocation.ExpectingInput)
     {
         return $Options
     }
-
-    #Store output files
-    $outputs =""
-    if (!$NoReport)
-	{
-        $outputs += "$($testReport)"  
-    }
-    $global:ResultSet.Add($global:ResultSet.Count, @("Test", (&{ if ($Options.Result-ne $null) {"$($Options.Result)"} Else {""}} ), (&{ if ($outputs -ne $null) {"$($outputs)"} Else {""}}), (&{ if ($Options.ErrorCodes -ne $null) {"$($Options.ErrorCodes)"} Else {""}} )))
 }
 
 function Invoke-ApexSqlScriptStep
@@ -1855,7 +1833,7 @@ function Invoke-ApexSqlScriptStep
         [ApexSqlOptions] $Options,
 
 		[Parameter(Mandatory = $false)]
-		[ApexSqlDatabaseConnection] $Database = $dsQA,
+		[ApexSqlDatabaseConnection] $Database,
 
         [Parameter(Mandatory = $false)]
 		[bool] $StopOnFail = $true
@@ -1863,9 +1841,7 @@ function Invoke-ApexSqlScriptStep
     if ($Options.Result -eq "Failure")
     {
         $global:SkippingList += "`tScript`r`n"
-        $error = "Skipping ApexSQL Script step due to failure in the pipeline"
-        Write-Warning -Message $error
-        Out-File -FilePath $Options.OutputLogFile -InputObject $error -Append
+        LogFail -FilePath $Options.OutputLogFile -ErrorText "Skipping ApexSQL Script step due to failure in the pipeline"
         if ($PSCmdlet.MyInvocation.ExpectingInput)
         {
             return $Options
@@ -1876,23 +1852,21 @@ function Invoke-ApexSqlScriptStep
         }
     }
 
-    #Output files names
-    $scriptName = "$($Options.OutputLocation)\DbScriptFolder\" #_$($Database.ConnectionName)
+    $scriptFolder = "$($Options.OutputLocation)\DatabaseScripts\"
+    New-Item -ItemType Directory -Path "$($scriptFolder)" -F
 
-    New-Item -ItemType Directory -Path "$($scriptName)" -F
-    
     #region Script
     #Full tool parameters
-	$toolParameters = " $($Database.AsParameters()) /exc:16384:SQLCop:tSQLt /exc:134217728:tSQLtCLR /eso /in /fl:""$($scriptName)"" /v /f"
+	$toolParameters = " $($Database.AsParameters()) /fl:""$($scriptFolder)"" /exc:16384:SQLCop:tSQLt /exc:134217728:tSQLtCLR /eso /in /v /f"
 	$params = @{
 		ToolName = "Script"
-		ToolParameters = $toolParameters 
+		ToolParameters = $toolParameters
 		Options = $Options
 		StopOnFail = $StopOnFail
 	}
 
     #Execute the tool (ApexSQL Script)
-	Start-ApexSQLTool @params 
+	Start-ApexSQLTool @params
     if ($PSCmdlet.MyInvocation.ExpectingInput)
     {
         return $Options
@@ -1903,11 +1877,11 @@ function Invoke-ApexSqlScriptStep
 
     #Full tool parameters
 
-    if ($global:StaticDataSource_ForDataDiff -ne $null)
+    if ($null -ne $global:StaticDataSource_ForDataDiff)
     {
-        $toolParametersDataDiff = " $global:StaticDataSource_ForDataDiff /sf2:""$($scriptName)"" /o:8 /sync /f"
+        $toolParametersDataDiff = " $global:StaticDataSource_ForDataDiff /sf2:""$($scriptFolder)"" /o:8 /sync /f"
         $paramsDD = @{
-		    ToolName = "Data Diff"	
+		    ToolName = "Data Diff"
             ToolParameters = $toolParametersDataDiff
             Options = $Options
 		    StopOnFail = $StopOnFail
@@ -1920,20 +1894,20 @@ function Invoke-ApexSqlScriptStep
         {
             return $Options
         }
-    
+
     }
     else
     {
         $tempSrcPath = "$($global:StaticDataPath_ForDataDiff)"
-        $tempDestPath = "$($Options.OutputLocation)\DbScriptFolder\Tables"
+        $tempDestPath = "$($Options.OutputLocation)\DatabaseScripts\Tables"
         if ((Test-Path -Path "$($tempSrcPath)") -and (Test-Path -Path "$($tempDestPath)"))
         {
             $StaticDataCopyStarted = "`r`n`r`n`t`t----- Started collecting static data -----`r`n" +
                         "`t`t------------------------------------------`r`n"
             Out-File -FilePath $Options.OutputLogFile -InputObject $StaticDataCopyStarted -Append
 
-            Copy-Item "$($global:StaticDataPath_ForDataDiff)" -Destination "$($Options.OutputLocation)\DbScriptFolder\Tables" -Recurse
-            
+            Copy-Item "$($global:StaticDataPath_ForDataDiff)" -Destination "$($Options.OutputLocation)\DatabaseScripts\Tables" -Recurse
+
             #Edit permissions to be able to delete later
             $Acl = Get-Acl "$($tempDestPath)\StaticData"
             $Ar = New-Object  system.security.accesscontrol.filesystemaccessrule($env:UserName,"FullControl","Allow")
@@ -1951,10 +1925,6 @@ function Invoke-ApexSqlScriptStep
     $info = "`r`n`r`n`t----- Completed scripting the database -----`r`n" +
                     "`t--------------------------------------------`r`n`r`n"
 	Out-File -FilePath $Options.OutputLogFile -InputObject $info -Append
-
-    #Store output files
-    $outputs = $scriptName
-    $global:ResultSet.Add($global:ResultSet.Count, @("Script", (&{ if ($Options.Result-ne $null) {"$($Options.Result)"} Else {""}} ), (&{ if ($outputs -ne $null) {"$($outputs)"} Else {""}}), (&{ if ($Options.ErrorCodes -ne $null) {"$($Options.ErrorCodes)"} Else {""}} )))
 }
 
 function Invoke-ApexSqlPackageStep
@@ -1977,15 +1947,15 @@ function Invoke-ApexSqlPackageStep
         [string]$nuget = $global:nugetExePath,
         [bool]$clean = $false,
         [switch]$DoNotRemoveContents,
-        [switch]$Consolidate
+        [switch]$Consolidate,
+        [Parameter(Mandatory = $false)]
+        [ApexSqlDatabaseConnection] $Database
 	)
 
     if ($Options.Result -eq "Failure")
     {
         $global:SkippingList += "`tPackage`r`n"
-        $error = "Skipping ApexSQL Package step due to failure in the pipeline"
-        Write-Warning -Message $error
-        Out-File -FilePath $Options.OutputLogFile -InputObject $error -Append -Confirm:$false
+        LogFail -FilePath $Options.OutputLogFile -ErrorText "Skipping ApexSQL Package step due to failure in the pipeline"
         if ($PSCmdlet.MyInvocation.ExpectingInput)
         {
             return $Options
@@ -2002,9 +1972,9 @@ function Invoke-ApexSqlPackageStep
 	Out-File -FilePath $Options.OutputLogFile -InputObject $info -Append
 
     #Script out temp. db to script folder (including static data)
-    if ($dsQA -ne $null)
+    if ($null -ne $Database)
     {
-        Invoke-ApexSqlScriptStep -Options $options | Out-Null
+        Invoke-ApexSqlScriptStep -Options $options -Database $Database | Out-Null
     }
 
     $ErrorActionPreference = "Stop"
@@ -2013,7 +1983,7 @@ function Invoke-ApexSqlPackageStep
     RemoveSnapshots -Location "$($Options.OutputLocation)"
     CleanUp
     PackageTheSpecification
-    if (($apiKey -eq "" -or $apiKey -eq $null) -and ($apiKeyFile -ne $null -and $apiKeyFile -ne ""))
+    if (($apiKey -eq "" -or $null -eq $apiKey) -and ($null -ne $apiKeyFile -and $apiKeyFile -ne ""))
     {
         $apiKey = (Get-Pass -PasswordFile $apiKeyFile)
     }
@@ -2035,12 +2005,11 @@ function Invoke-ApexSqlPackageStep
     #Write step result
     if ($Options.Result -eq "Success")
     {
-        $stepName = "Packaging"
+        $stepName = "Package"
         $msg = "$stepName step passed."
-        Write-Host $msg
+        Write-Verbose $msg
         Out-File -FilePath $Options.OutputLogFile -InputObject "`r`n##### $($msg) #####`r`n" -Append
     }
-    $global:ResultSet.Add($global:ResultSet.Count, @("Package", $($Options.Result), "$($Options.PackageFilePath)", (&{ if ($Options.ErrorCodes -ne $null) {"$($Options.ErrorCodes)"} Else {""}} )))
 }
 
 function Invoke-ApexSqlNotifyStep
@@ -2062,7 +2031,7 @@ function Invoke-ApexSqlNotifyStep
     )
     if (-not $Subject)
     {
-        $Subject = "%PipelineName% pipeline notification: %Status% at %DateTime%" 
+        $Subject = "%PipelineName% pipeline notification: %Status% at %DateTime%"
         if ($Status -ne "started")
         {
            $Subject += " with result: %Result%"
@@ -2077,16 +2046,13 @@ function Invoke-ApexSqlNotifyStep
     $stepList = ""
     for ($i=0; $i -lt $global:ResultSet.Count; $i++)
     {
-        foreach ($item in $global:ResultSet)
+        $stepList += "$($global:ResultSet[$i]["Step"])`r`n"
+        $stepList += "`tstatus:`t$($global:ResultSet[$i]["Result"])`r`n" +
+                    (&{if ($($global:ResultSet[$i][1]) -eq "Failure") {"`t$(GetToolName $($global:ResultSet[$i]["Step"])) return code is: $($global:ResultSet[$i]["ErrorCode"])`r`n"} Else {""}}) +
+                    (&{if ($global:ResultSet[$i]["OutputFiles"].Length -gt 0) {"`toutput:`t$($global:ResultSet[$i]["OutputFiles"])`r`n`r`n"} Else {"`r`n"}})
+        if ($($global:ResultSet[$i]["Result"]) -eq "Failure")
         {
-            $stepList += "$($item[$i][0])`r`n"
-            $stepList += "`tstatus:`t$($item[$i][1])`r`n" +
-                    (&{if ($($item[$i][1]) -eq "Failure") {"`t$(GetToolName $($item[$i][0])) return code is: $($item[$i][3])`r`n"} Else {""}}) +
-                    (&{if ($item[$i][2]) {"`toutput:`t$($item[$i][2])`r`n`r`n"} Else {"`r`n"}})
-            if ($($item[$i][1]) -eq "Failure")
-            {
-                $pipelineResult = $false
-            }
+            $pipelineResult = $false
         }
     }
 
@@ -2096,31 +2062,31 @@ function Invoke-ApexSqlNotifyStep
     $pipelineResultReport = @{$true = "Success"; $false = "Failure" }[$pipelineResult]
     $log = "Name: $($Options.PipelineName)`r`n`r`n"
     $pipelineReturnCode = @{$true = "0"; $false = "1" }[$pipelineResult]
-    
+
     $log += "Started at $($pipelineStarted)`r`n"
     $log += "Completed at $($pipelineCompleted) with result: $($pipelineResultReport)`r`n"
     $log += "Return code is: $($pipelineReturnCode)`r`n`r`n"
 
-    if ($Options.FailedSteps -ne $null)
+    if ($null -ne $Options.FailedSteps)
     {
-        $log += "Failed step:`r`n $($Options.FailedSteps) with error code: $($Options.ErrorCodes)`r`n`r`n" 
+        $log += "Failed step:`r`n $($Options.FailedSteps) with error code: $($Options.ErrorCodes)`r`n`r`n"
     }
 
     $log += "Output files path: $($Options.OutputLocation)`r`n`r`n"
-    
-    
-    
+
+
+
     $log += "`r`n`r`nPipeline steps:`r`n`r`n"
     $log += $stepList
 
-    if ($global:SkippingList -ne $null)
+    if ($null -ne $global:SkippingList)
     {
         $log += "`r`n==========`r`n`r`nSkipped steps:`r`n`r`n$($global:SkippingList)"
     }
 
     $log += "`r`n==========`r`n
             For more details check the $($Options.PipelineName)_job_summary.log file in attachment."
-    
+
 
     $Body = "<HTML><HEAD><META http-equiv=""Content-Type"" content=""text/html; charset=iso-8859-1"" /><TITLE></TITLE></HEAD><BODY><p>"
     if ($Status -eq "started")
@@ -2133,9 +2099,9 @@ function Invoke-ApexSqlNotifyStep
     {
         $Body += $log.Replace("`r`n","<br>").Replace("`t","&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;")
     }
-    
+
     $Body += "</p></BODY></HTML>"
-    
+
     $Subject = $Subject -replace "%PipelineName%", $Options.PipelineName `
         -replace "%Status%", $Status `
         -replace "%DateTime%", (&{ If ($Status -eq "started") { "$($pipelineStarted)" } Else { "$($pipelineCompleted)" }}) `
@@ -2178,20 +2144,31 @@ function Invoke-ApexSqlNotifyStep
             $response = "`r`nNotification step failed after $RetryCount retries with message:`r`n$($_.Exception)"
         }
     }
-    if ($response)
-    {
-		Out-File -FilePath $Options.OutputLogFile -InputObject $response -Append
-    }
+
     if ($PSCmdlet.MyInvocation.ExpectingInput)
     {
         return $Options
     }
+
+    #if ($response)
+    #{
+	#	Out-File -FilePath $Options.OutputLogFile -InputObject $response -Append
+    #}
+
     if($Status -ne "start")
     {
-        #Play beep sound  
-        [System.Media.SystemSounds]::Beep.Play()   
+        #Play beep sound
+        [System.Media.SystemSounds]::Beep.Play()
+        #Write step result
+        ######if ($Options.Result -eq "Success")
+        #####{
+        #####    $stepName = "Notify"
+        #####    $msg = "$stepName step passed."
+        #####    Write-Verbose $msg
+            #Out-File -FilePath $Options.OutputLogFile -InputObject "`r`n##### $($msg) #####`r`n" -Append
+        #####}
     }
-    Write-Host("`r`n`r`n-----`r`n`r`n`r`n$($log)")
+    Write-Verbose("`r`n`r`n-----`r`n`r`n`r`n$($log)")
 }
 
 function Invoke-ApexSqlDocumentStep
@@ -2226,9 +2203,7 @@ function Invoke-ApexSqlDocumentStep
     if ($Options.Result -eq "Failure")
     {
         $global:SkippingList += "`tDocument`r`n"
-        $error = "Skipping ApexSQL Document step due to failure in the pipeline"
-        Write-Warning -Message $error
-        Out-File -FilePath $Options.OutputLogFile -InputObject $error -Append
+        LogFail -FilePath $Options.OutputLogFile -ErrorText "Skipping ApexSQL Document step due to failure in the pipeline"
         if ($PSCmdlet.MyInvocation.ExpectingInput)
         {
             return $Options
@@ -2238,23 +2213,15 @@ function Invoke-ApexSqlDocumentStep
             return
         }
     }
-	$project = ""
-	if ($ProjectFile)
-	{
-		$ProjectFile = $options.ScriptDirectory + "\Projects\" + $ProjectFile
-        $project = " /project:""$ProjectFile"""
-	}
-	$additional = ""
-	if ($AdditionalOptions)
-	{
-		$additional = " $AdditionalOptions"
-	}
+	
+    $project = Set-ProjectSwitch -Options $Options -ProjectFile $ProjectFile
+    $additional = Set-AdditionalSwitch -Additional $AdditionalOptions
 
     #Output files names
     $sourceSwitches = ""
     $sourceSnapShot = ""
     $dbName = ""
-    if ($Database.ConnectionName -ne $null)
+    if ($null -ne $Database.ConnectionName)
     {
         $dbName = $Database.ConnectionName
     }
@@ -2264,30 +2231,31 @@ function Invoke-ApexSqlDocumentStep
     }
     if (!$Differential)
     {
-        $reportName = "Document_$($dbName)_Documentation.$($PsCmdlet.ParameterSetName)"
-        if ($Database -eq $null)
+        $reportName = "Document.$($PsCmdlet.ParameterSetName)"
+        if ($null -eq $Database)
         {
-            $sourceSwitches = "/dbsnp:""$($Options.OutputLocation)\Db_SnapShot.axsnp""" 
+            $sourceSwitches = "/dbsnp:""$($Options.OutputLocation)\Db_SnapShot.axsnp"""
         }
         else
         {
-            $sourceSwitches = "$($Database.AsParameters("doc"))" 
+            $sourceSwitches = "$($Database.AsParameters("doc"))"
         }
     }
     else
     {
-        $reportName = "Document_Differential_Documentation.$($PsCmdlet.ParameterSetName)"
+        $reportName = "DifferentialDocument.$($PsCmdlet.ParameterSetName)"
         $sourceSwitches  = "/dbsnp:""$($Options.OutputLocation)\Db_SnapShot_Diff.axdsn"""
     }
 
     #Full tool parameters $($Database.AsParameters("doc"))
 	$toolParameters = " /ot:$($PsCmdlet.ParameterSetName) /od:""$($Options.OutputLocation)""" +
-	" /on:$reportName$project$additional $sourceSwitches   /v /f"
+	" /on:$reportName $project $additional $sourceSwitches   /v /f"
 	$params = @{
 		ToolName = "Doc"
-		ToolParameters = $toolParameters 
+		ToolParameters = $toolParameters
 		Options = $Options
 		StopOnFail = $StopOnFail
+        OutputFiles = $reportName
 	}
 
     #Execute the tool
@@ -2297,10 +2265,6 @@ function Invoke-ApexSqlDocumentStep
     {
         return $Options
     }
-
-    #Store output files
-    $outputs = "$($Options.OutputLocation)\$($reportName)"
-    $global:ResultSet.Add($global:ResultSet.Count, @("Document", (&{ if ($Options.Result-ne $null) {"$($Options.Result)"} Else {""}} ), (&{ if ($outputs -ne $null) {"$($outputs)"} Else {""}}), (&{ if ($Options.ErrorCodes -ne $null) {"$($Options.ErrorCodes)"} Else {""}} )))
 }
 
 function Invoke-ApexSqlSchemaSyncStep
@@ -2321,11 +2285,9 @@ function Invoke-ApexSqlSchemaSyncStep
 		[Parameter(Mandatory = $false)]
 		[string] $AdditionalOptions,
         [Parameter(Mandatory = $false)]
-		[switch] $NoScript,
-        [Parameter(Mandatory = $false)]
 		[switch] $NoReport,
         [Parameter(Mandatory = $false)]
-		[switch] $NoSummary,
+		[switch] $NoScript,
         [Parameter(Mandatory = $false)]
 		[switch] $SourceFromPipeline
 
@@ -2333,9 +2295,7 @@ function Invoke-ApexSqlSchemaSyncStep
     if ($Options.Result -eq "Failure")
     {
         $global:SkippingList += "`tSchemaSync`r`n"
-        $error = "Skipping ApexSQL Schemasync step due to failure in the pipeline"
-        Write-Warning -Message $error
-        Out-File -FilePath $Options.OutputLogFile -InputObject $error -Append
+        LogFail -FilePath $Options.OutputLogFile -ErrorText "Skipping ApexSQL Schemasync step due to failure in the pipeline"
         if ($PSCmdlet.MyInvocation.ExpectingInput)
         {
             return $Options
@@ -2345,22 +2305,13 @@ function Invoke-ApexSqlSchemaSyncStep
             return
         }
     }
-	$project = ""
-	if ($ProjectFile)
-	{
-        $ProjectFile = $options.ScriptDirectory + "\Projects\" + $ProjectFile
-        $project = " /project:""$ProjectFile"""
-	}
-	$additional = ""
-	if ($AdditionalOptions)
-	{
-		$additional = " $AdditionalOptions"
-	}
+
+	$project = Set-ProjectSwitch -Options $Options -ProjectFile $ProjectFile -ReviewStep
+    $additional = Set-AdditionalSwitch -Additional $AdditionalOptions
 
     #Output files names
-    $schemaSyncScript  = "$($Options.OutputLocation)\SchemaSync_$($Source.ConnectionName)_$($Target.ConnectionName)_SyncScript.sql"
-    $schemaSyncReport  = "$($Options.OutputLocation)\SchemaSync_$($Source.ConnectionName)_$($Target.ConnectionName)_DiffReport.html"
-    $schemaSyncSummary = "$($Options.OutputLocation)\SchemaSync_$($Source.ConnectionName)_$($Target.ConnectionName)_DiffSummary.log"
+    $schemaSyncScript  = "$($Options.OutputLocation)\SchemaSync.sql"
+    $schemaSyncReport  = "$($Options.OutputLocation)\SchemaReport.html"
 
 
     $srcDefined = (&{ if ($Source) {$true} Else {$false}} )
@@ -2372,7 +2323,7 @@ function Invoke-ApexSqlSchemaSyncStep
     {
         if ($Source.NugetID)
         {
-            if ($Source.Latest -eq $true)
+            if (-not ($Source.Version.Length -gt 0))
                     {
             ExtractNupkg -OutputLocation $Options.OutputLocation -NugetID $Source.NugetID -Source $Source.Source
         }
@@ -2380,19 +2331,19 @@ function Invoke-ApexSqlSchemaSyncStep
                     {
             ExtractNupkg -OutputLocation $Options.OutputLocation -NugetID $Source.NugetID -Version $Source.Version -Source $Source.Source
         }
-        
 
-            $dir = Get-ChildItem $Options.OutputLocation | ?{ $_.PSIsContainer } | sort LastWriteTime | select -last 1 | select -ExpandProperty FullName
 
-            #Clear all files and folders except DbScriptFolder (which should be used as source)
-            if($dir -ne $null)
+            $dir = Get-ChildItem $Options.OutputLocation | Where-Object{ $_.PSIsContainer } | Sort-Object LastWriteTime | Select-Object -last 1 | Select-Object -ExpandProperty FullName
+
+            #Clear all files and folders except DatabaseScripts (which should be used as source)
+            if($null -ne $dir)
             {
                 ClearExtractedContents -path $dir
             }
 
-            $SFPath = Get-ChildItem $dir | ?{ $_.PSIsContainer } | ?{ $_.Name -like "*DbScriptFolder*" } | select -ExpandProperty FullName | Select -Last 1 
+            $SFPath = Get-ChildItem $dir | Where-Object{ $_.PSIsContainer } | Where-Object{ $_.Name -like "*DatabaseScripts*" } | Select-Object -ExpandProperty FullName | Select-Object -Last 1
             $sourceParameters = " /sf1:""$($SFPath)"" "
-            $global:nugetDbScriptFolderSource = $sourceParameters
+            $global:nugetDatabaseScriptsSource = $sourceParameters
         }
         else
         {
@@ -2404,7 +2355,7 @@ function Invoke-ApexSqlSchemaSyncStep
     }
     else
     {
-        $sourceParameters = " /sf1:""$($Options.OutputLocation)\DbScriptFolder"" "
+        $sourceParameters = " /sf1:""$($Options.OutputLocation)\DatabaseScripts"" "
     }
 
 
@@ -2412,7 +2363,7 @@ function Invoke-ApexSqlSchemaSyncStep
     {
         $targetParameters =  $($Target.AsParameters("diff2"))
     }
-    else 
+    else
     {
         $targetParameters = ""
     }
@@ -2421,8 +2372,8 @@ function Invoke-ApexSqlSchemaSyncStep
     $toolParameters = "$($sourceParameters) /sn2:""$($Options.OutputLocation)\Db_SnapShot.axsnp"" /export /v /f"
 	$params = @{
 		ToolName = "Diff"
-		ToolParameters = $toolParameters 
-		Options = $Options 
+		ToolParameters = $toolParameters
+		Options = $Options
 		StopOnFail = $StopOnFail
         Silent = $true
 	}
@@ -2433,31 +2384,29 @@ function Invoke-ApexSqlSchemaSyncStep
 
     #Define outputs for tool parameters
     #region tool parameters outputs
-    $report = ""
-    if (!$NoReport)
-    {
-        $report = " /ot:html /on:""$schemaSyncReport"""
-    }
+    $OutputFiles = ""
     $script = ""
     if (!$NoScript)
     {
         $script = " /ot2:sql /on2:""$schemaSyncScript"""
-    }	
-    
-    $summary = ""
-    if (!$NoSummary)
+        $OutputFiles += if ($OutputFiles.Length -gt 0) {", SchemaSync.sql"} else {"SchemaSync.sql"}
+    }
+    $report = ""
+    if (!$NoReport)
     {
-        $summary = " /cso:""$schemaSyncSummary"" "
+        $report = " /ot:html /on:""$schemaSyncReport"""
+        $OutputFiles += if ($OutputFiles.Length -gt 0) {", SchemaReport.html"} else {"SchemaReport.html"}
     }
     #endregion
 
     #Full tool parameters
-    $toolParameters = "$($sourceParameters) $($targetParameters) $report $script $summary $project$additional /dsn:""$($Options.OutputLocation)\Db_SnapShot_Diff.axdsn"" /v /f"
+    $toolParameters = "$($sourceParameters) $($targetParameters) $report $script $project $additional /dsn:""$($Options.OutputLocation)\Db_SnapShot_Diff.axdsn"" /v /f"
 	$params = @{
 		ToolName = "Diff"
-		ToolParameters = $toolParameters 
-		Options = $Options 
+		ToolParameters = $toolParameters
+		Options = $Options
 		StopOnFail = $StopOnFail
+        OutputFiles = if ($OutputFiles.Length -gt 0) {$OutputFiles} else {$null}
 	}
 
     #Execute the tool
@@ -2467,29 +2416,6 @@ function Invoke-ApexSqlSchemaSyncStep
     {
         return $Options
     }
-
-    #Store output files
-    $outputs = ""
-    if (!$NoScript)
-    {
-        $outputs += "$($schemaSyncScript)`r`n"
-    }
-    if (!$NoReport)
-    {
-        $TABS = &{if (!$NoScript) {"`t`t`t`t"} Else {""}}
-        $outputs += "$($TABS)$($schemaSyncReport)`r`n"
-    }
-    if (!$NoSummary)
-    {
-        $TABS = &{if ($NoReport -and $NoScript) {""} Else {"`t`t`t`t"}}
-        $outputs += "$($TABS)$($schemaSyncSummary)"
-    }
-    if (!$NoWarnings)
-    {
-        $TABS = &{if ($NoReport -and $NoScript -and $NoSummary) {""} Else {"`t`t`t`t"}}
-        $outputs += "$($TABS)$($schemaSyncWarnings)"
-    }
-    $global:ResultSet.Add($global:ResultSet.Count, @("SchemaSync", (&{ if ($Options.Result-ne $null) {"$($Options.Result)"} Else {""}} ), (&{ if ($outputs -ne $null) {"$($outputs)"} Else {""}}), (&{ if ($Options.ErrorCodes -ne $null) {"$($Options.ErrorCodes)"} Else {""}} )))
 }
 
 function Invoke-ApexSqlDataSyncStep
@@ -2510,20 +2436,16 @@ function Invoke-ApexSqlDataSyncStep
 		[Parameter(Mandatory = $false)]
 		[string] $AdditionalOptions,
         [Parameter(Mandatory = $false)]
-		[switch] $NoScript,
-        [Parameter(Mandatory = $false)]
 		[switch] $NoReport,
         [Parameter(Mandatory = $false)]
-		[switch] $NoSummary,
+		[switch] $NoScript,
         [Parameter(Mandatory = $false)]
 		[switch] $SourceFromPipeline
 	)
     if ($Options.Result -eq "Failure")
     {
         $global:SkippingList += "`tDataSync`r`n"
-        $error = "Skipping ApexSQL DataSync step due to failure in the pipeline"
-        Write-Warning -Message $error
-        Out-File -FilePath $Options.OutputLogFile -InputObject $error -Append
+        LogFail -FilePath $Options.OutputLogFile -ErrorText "Skipping ApexSQL DataSync step due to failure in the pipeline"
         if ($PSCmdlet.MyInvocation.ExpectingInput)
         {
             return $Options
@@ -2533,30 +2455,21 @@ function Invoke-ApexSqlDataSyncStep
             return
         }
     }
-	$project = ""
-	if ($ProjectFile)
-	{
-        $ProjectFile = $options.ScriptDirectory + "\Projects\" + $ProjectFile
-        $project = " /project:""$ProjectFile"""
-	}
-	$additional = ""
-	if ($AdditionalOptions)
-	{
-		$additional = " $AdditionalOptions"
-	}
+
+    $project = Set-ProjectSwitch -Options $Options -ProjectFile $ProjectFile -ReviewStep
+    $additional = Set-AdditionalSwitch -Additional $AdditionalOptions
 
     #Output files names
-    $dataSyncScript  = "$($Options.OutputLocation)\DataSync_$($Source.ConnectionName)_$($Target.ConnectionName)_SyncScript.sql"
-    $dataSyncReport  = "$($Options.OutputLocation)\DataSync_$($Source.ConnectionName)_$($Target.ConnectionName)_DiffReport.html"
-    $dataSyncSummary  = "$($Options.OutputLocation)\DataSync_$($Source.ConnectionName)_$($Target.ConnectionName)_DiffSummary.log"
+    $dataSyncScript  = "DataSync.sql"
+    $dataSyncReport  = "DataReport.html"
 
     $sourceParameters = ""
     if (!$SourceFromPipeline)
     {
-        #Check if .nupkg sources is already configured   
-        if ($global:nugetDbScriptFolderSource -ne $null)
+        #Check if .nupkg sources is already configured
+        if ($null -ne $global:nugetDatabaseScriptsSource)
         {
-            $sourceParameters = $global:nugetDbScriptFolderSource
+            $sourceParameters = $global:nugetDatabaseScriptsSource
         }
         else
         {
@@ -2564,14 +2477,14 @@ function Invoke-ApexSqlDataSyncStep
             if ($Source.NugetID)
             {
                 ExtractNupkg -OutputLocation $Options.OutputLocation -NugetID $Source.NugetID -Version $Source.Version -Source $Source.Source
-                $dir = Get-ChildItem $Options.OutputLocation | ?{ $_.PSIsContainer } | sort LastWriteTime | select -last 1 | select -ExpandProperty FullName
+                $dir = Get-ChildItem $Options.OutputLocation | Where-Object{ $_.PSIsContainer } | Sort-Object LastWriteTime | Select-Object -last 1 | Select-Object -ExpandProperty FullName
 
-                #Clear all files and folders except DbScriptFolder (which should be used as source)
-                if($dir -ne $null)
+                #Clear all files and folders except DatabaseScripts (which should be used as source)
+                if($null -ne $dir)
                 {
                     ClearExtractedContents -path $dir
                 }
-                $SFPath = Get-ChildItem $dir | ?{ $_.PSIsContainer } | ?{ $_.Name -like "*DbScriptFolder*" } | select -ExpandProperty FullName | Select -Last 1 
+                $SFPath = Get-ChildItem $dir | Where-Object{ $_.PSIsContainer } | Where-Object{ $_.Name -like "*DatabaseScripts*" } | Select-Object -ExpandProperty FullName | Select-Object -Last 1
                 $sourceParameters = " /sf1:""$($SFPath)"" "
             }
             else
@@ -2582,36 +2495,34 @@ function Invoke-ApexSqlDataSyncStep
     }
     else
     {
-        $sourceParameters = " /sf1:""$($Options.OutputLocation)\DbScriptFolder"" "
+        $sourceParameters = " /sf1:""$($Options.OutputLocation)\DatabaseScripts"" "
     }
 
     #Define outputs for tool parameters
     #region tool parameters outputs
+    $OutputFiles = ""
     $report = ""
     if (!$NoReport)
     {
         $report = " /ot:html /on:""$dataSyncReport"""
+        $OutputFiles += if ($OutputFiles.Length -gt 0) {", DataReport.html"} else {"DataReport.html"}
     }
     $script = ""
     if (!$NoScript)
     {
         $script = " /ot2:sql /on2:""$dataSyncScript"""
-    }	
-    
-    $summary = ""
-    if (!$NoSummary)
-    {
-        $summary = " /cso:""$dataSyncSummary"" "
+        $OutputFiles += if ($OutputFiles.Length -gt 0) {", DataSync.sql"} else {"DataSync.sql"}
     }
     #endregion
 
     #Full tool parameters
-    $toolParameters = "$($sourceParameters) $($Target.AsParameters("diff2")) $report $script $warnings $summary $project$additional /v /f" 
+    $toolParameters = "$($sourceParameters) $($Target.AsParameters("diff2")) $report $script $project$additional /v /f"
 	$params = @{
 		ToolName = "Data Diff"
-		ToolParameters = $toolParameters 
+		ToolParameters = $toolParameters
 		Options = $Options
 		StopOnFail = $StopOnFail
+        OutputFiles = if ($OutputFiles.Length -gt 0) {$OutputFiles} else {$null}
 	}
 
     #Execute the tool
@@ -2620,24 +2531,6 @@ function Invoke-ApexSqlDataSyncStep
     {
         return $Options
     }
-
-    #Store output files
-    $outputs = ""
-    if (!$NoScript)
-    {
-        $outputs += "$($dataSyncScript)`r`n"
-    }
-    if (!$NoReport)
-    {
-        $TABS = &{if (!$NoScript) {"`t`t`t`t"} Else {""}}
-        $outputs += "$($TABS)$($dataSyncReport)`r`n"
-    }
-    if (!$NoSummary)
-    {
-        $TABS = &{if ($NoReport -and $NoScript) {""} Else {"`t`t`t`t"}}
-        $outputs += "$($TABS)$($dataSyncSummary)"
-    }
-    $global:ResultSet.Add($global:ResultSet.Count, @("DataSync", (&{ if ($Options.Result-ne $null) {"$($Options.Result)"} Else {""}} ), (&{ if ($outputs -ne $null) {"$($outputs)"} Else {""}}), (&{ if ($Options.ErrorCodes -ne $null) {"$($Options.ErrorCodes)"} Else {""}} )))
 }
 
 function Invoke-ApexSqlDeployStep
@@ -2657,7 +2550,7 @@ function Invoke-ApexSqlDeployStep
 
         [Parameter(Mandatory = $false)]
         [switch] $UseCurrentPackage,
-        
+
         [Parameter(Mandatory = $true)]
         [ApexSqlDatabaseConnection[]] $Databases
     )
@@ -2665,9 +2558,7 @@ function Invoke-ApexSqlDeployStep
     if ($Options.Result -eq "Failure")
     {
         $global:SkippingList += "`tDeploy`r`n"
-        $error = "Skipping ApexSQL Deploy step due to failure in the pipeline"
-        Write-Warning -Message $error
-        Out-File -FilePath $Options.OutputLogFile -InputObject $error -Append -Confirm:$false
+        LogFail -FilePath $Options.OutputLogFile -ErrorText "Skipping ApexSQL Deploy step due to failure in the pipeline"
         if ($PSCmdlet.MyInvocation.ExpectingInput)
         {
             return $Options
@@ -2677,7 +2568,7 @@ function Invoke-ApexSqlDeployStep
             return
         }
     }
-    
+
     $info = "`r`n`r`n=============================`r`n" +
                     "----- Started Deploying -----`r`n" +
                     "-----------------------------`r`n"
@@ -2693,7 +2584,7 @@ function Invoke-ApexSqlDeployStep
         }
         else
         {
-            if ($Source.Version -ne $null)
+            if ($null -ne $Source.Version)
             {
                 ExtractNupkg -NugetID $Source.NugetID -Source $Source.Source -OutputLocation $Options.OutputLocation
             }
@@ -2701,10 +2592,10 @@ function Invoke-ApexSqlDeployStep
             {
                 ExtractNupkg -NugetID $Source.NugetID -Source $Source.Source -Version $Source.Version -OutputLocation $Options.OutputLocation
             }
-            
+
         }
-        
-        
+
+
         $lookAtDir = $null
         if(!$UseCurrentPackage)
         {
@@ -2712,13 +2603,13 @@ function Invoke-ApexSqlDeployStep
         }
         else
         {
-            $lookAtDir = Get-ChildItem $Options.OutputLocation | ?{ $_.PSIsContainer } | sort LastWriteTime | select -last 1 | select -ExpandProperty FullName
+            $lookAtDir = Get-ChildItem $Options.OutputLocation | Where-Object{ $_.PSIsContainer } | Sort-Object LastWriteTime | Select-Object -last 1 | Select-Object -ExpandProperty FullName
         }
-          
+
 
         $lookAtDir = Get-ChildItem -Path $Options.OutputLocation
-        $schemaScripts = $lookAtDir | Where-Object -FilterScript {$_.Name -like "SchemaSync_*_SyncScript.sql"}
-        $dataScripts   = $lookAtDir | Where-Object -FilterScript {$_.Name -like "DataSync_*_SyncScript.sql"}
+        $schemaScripts = $lookAtDir | Where-Object -FilterScript {$_.Name -like "SchemaSync.sql"}
+        $dataScripts   = $lookAtDir | Where-Object -FilterScript {$_.Name -like "DataSync.sql"}
         $consolidatedScript   = $lookAtDir | Where-Object -FilterScript {$_.Name -like "*Consolidated_script.sql"}
         $schemaOK = ($DeployType -eq "Schema") -and ($schemaScripts.Count -eq 1) -and $consolidatedScript.Count -eq 0
         $dataOK   = ($DeployType -eq "Data") -and ($dataScripts.Count -eq 1) -and $consolidatedScript.Count -eq 0
@@ -2726,13 +2617,14 @@ function Invoke-ApexSqlDeployStep
 
         if (($schemaOK -eq $false -and $dataOK -eq $false) -and $bothOK -eq $false)
         {
-            $error = "There are no schema and data differences.`r`n" +
+            $errorText = "There are no schema or data differences.`r`n" +
             "`tProcess terminated."
-            Write-Warning -Message $error
-            Out-File -FilePath $Options.OutputLogFile -InputObject $error -Append 
+            LogFail -FilePath $Options.OutputLogFile -ErrorText $errorText
             $Options.ErrorCodes += 102
             $Options.FailedSteps += @("ApexSQL Deploy")
             $Options.Result = "Failure"
+            $global:ResultSet.Add($global:ResultSet.Count, @{Step="Deploy"; Result='Failure'; ErrorCode=$lastExitCode;})
+            return
         }
 
         foreach ($database in $Databases)
@@ -2747,7 +2639,7 @@ function Invoke-ApexSqlDeployStep
             }
             $sqlcmdProps = "sqlcmd.exe -S ""$($database.Server)"" -d ""$($database.Database)""$credentials -b -i"
 
-            if (($schemaOK -or $bothOK) -and $schemaScripts -ne $null)
+            if (($schemaOK -or $bothOK) -and $null -ne $schemaScripts)
             {
                 $schema = $schemaScripts[0].FullName
                 $result = Invoke-Expression -Command "$sqlcmdProps ""$schema"""
@@ -2760,7 +2652,7 @@ function Invoke-ApexSqlDeployStep
                     throw "Schema synchronization failed"
                 }
             }
-            if (($dataOK -or $bothOK)  -and $dataScripts -ne $null)
+            if (($dataOK -or $bothOK)  -and $null -ne $dataScripts)
             {
                 $data = $dataScripts[0].FullName
                 $result = Invoke-Expression -Command "$sqlcmdProps ""$data"""
@@ -2775,11 +2667,30 @@ function Invoke-ApexSqlDeployStep
             }
         }
 
-        #Remove extracted package directory (we don't need it any more) 
-        Remove-Item -Recurse -Force $extractedPackDir
+        #Write step result
+        $stepName = "Deploy"
+        LogFail -FilePath $Options.OutputLogFile -ErrorText "$stepName step passed."
+        $global:ResultSet.Add($global:ResultSet.Count, @{Step="Deploy"; Result='Success';})
     }
     catch
     {
+
+		$Options.FailedSteps += @("ApexSQL Deploy")
+        $Options.ErrorCodes += @($lastExitCode)
+		if ($StopOnFail)
+		{
+            $stepName = "Deploy"
+			$Options.Result = "Failure"
+            $msg = "$stepName step failed."
+            Write-Warning $msg
+            LogFail -FilePath $Options.OutputLogFile -ErrorText "`r`nApexSQL $ToolName failed.`r`nThe process is canceled due to failure return code: $lastExitCode"
+            return $false
+		}
+		else
+		{
+			$Options.Result = "Completed with errors"
+		}
+
         Out-File -FilePath $Options.OutputLogFile -InputObject $_.Message -Append
     }
     if ($PSCmdlet.MyInvocation.ExpectingInput)
@@ -2787,16 +2698,4 @@ function Invoke-ApexSqlDeployStep
         return $Options
     }
 
-    #Write step result
-    if ($Options.Result -eq "Success")
-    {
-        $stepName = "Deploying"
-        $msg = "$stepName step passed."
-        Write-Host $msg
-        Out-File -FilePath $Options.OutputLogFile -InputObject "`r`n##### $($msg) #####`r`n" -Append
-    }
-
-    #Store output files
-    $outputs = ""
-    $global:ResultSet.Add($global:ResultSet.Count, @("Deploy", (&{ if ($Options.Result-ne $null) {"$($Options.Result)"} Else {""}} ), (&{ if ($outputs -ne $null) {"$($outputs)"} Else {""}}), (&{ if ($Options.ErrorCodes -ne $null) {"$($Options.ErrorCodes)"} Else {""}} )))
 }

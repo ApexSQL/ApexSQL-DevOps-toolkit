@@ -20,18 +20,18 @@ Read-Host -AsSecureString |ConvertFrom-SecureString |Out-File path_to_the_script
 
 Initialize-Globals -CurrentDirectory "$(Split-Path -parent $PSCommandPath)"
 #Nuget package settings
-$global:nugetId = "ApexSQL_CD"
+$global:nugetId = "packageID"
 $global:nugetAuthors = "ApexSQL LLC"
 $global:nugetOwners = "ApexSQL LLC"
-$global:pushSource = "cicd.apexsql"
+$global:pushSource = "https://some.nuget.feed.url.com"
 $global:apiKeyFile = "ApiKey_file"
-$global:nugetExePath = "C:\Program Files\ApexSQL\ApexSQL DevOps toolkit\Modules\ApexSQL_DevOps\nuget.exe"
+$global:nugetExePath = "C:\nuget.exe"
 
 #Global options (pipeline name, output folder location and notification settings)
 $options = New-ApexSqlOptions -PipelineName "CD_Pipeline"
 
 #Email server settings used for notifications
-$notificationSettings = New-ApexSQLNotificationSettings -Options $options -EmailAddress "example@gmail.com" -PasswordFile "GMailPassword" -SmtpServer "smtp.gmail.com" -Port 587 -UseSSL
+$notificationSettings = New-ApexSQLNotificationSettings -Options $options -EmailAddress "user@example.com" -PasswordFile "PasswordFileName" -SmtpServer "some.smtp.server.com" -Port 587 -UseSSL 
 
 #endregion
 
@@ -39,10 +39,10 @@ $notificationSettings = New-ApexSQLNotificationSettings -Options $options -Email
 #region Datasources definition
 
 #Define data source: NuGet pacakge
-$stageDB = New-ApexSQLSource -ConnectionName "stageDB" -Source_Type nuget -Source "cicd.apexsql" -NugetID "ApexSQL_CI" -Latest $true
+$stageDB = New-ApexSQLSource -ConnectionName "stageDB" -Source_Type nuget -Source "https://some.nuget.feed.url.com" -NugetID "packageID" -Version "packageVersion"
 
 #Define data source: database (production)
-$productionDB = New-ApexSqlDatabaseConnection -ConnectionName "productionDB" -Server "production_server" -Database "database_PROD" -UserName "sa" -PasswordFile "DBPassword"
+$productionDB = New-ApexSqlDatabaseConnection -ConnectionName "productionDB" -Server "serverName" -Database "databaseName" -WindowsAuthentication
 
 #endregion
 
@@ -50,23 +50,19 @@ $productionDB = New-ApexSqlDatabaseConnection -ConnectionName "productionDB" -Se
 #region CD pipeline steps in order of execution
 
 #Notification step
-#Invoke-ApexSqlNotifyStep -Options $options -DistributionList "example@gmail.com" -Status started
+#Invoke-ApexSqlNotifyStep -Options $options -DistributionList "user@example.com" -Status started
 
 #SchemaSync step
-Invoke-ApexSqlSchemaSyncStep -Options $options -Source $stageDB -Target $productionDB | Out-Null
+Invoke-ApexSqlSchemaSyncStep -Options $options -Source $stageDB -Target $productionDB -Verbose | Out-Null
 
 #DataSync step
-Invoke-ApexSqlDataSyncStep -Options $options -Source $stageDB -Target $productionDB | Out-Null
-
-#Document step
-Invoke-ApexSqlDocumentStep -Options $options -AsChm -Differential | Out-Null
+Invoke-ApexSqlDataSyncStep -Options $options -Source $stageDB -Target $productionDB -Verbose | Out-Null
 
 #Deploy step
-Invoke-ApexSqlDeployStep -Options $options -Source $stageDB -DeployType Both -Database $productionDB | Out-Null
-
+Invoke-ApexSqlDeployStep -Options $options -DeployType Both -Database $productionDB -Verbose | Out-Null
 
 #Notification step
-Invoke-ApexSqlNotifyStep -Options $options -DistributionList "example@gmail.com" -Status completed
+Invoke-ApexSqlNotifyStep -Options $options -DistributionList "user@example.com" -Status completed -Verbose
 
 #endregion
 
