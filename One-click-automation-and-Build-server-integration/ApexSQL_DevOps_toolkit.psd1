@@ -9,7 +9,7 @@
 @{
 
 # Script module or binary module file associated with this manifest
-ModuleToProcess = "ApexSQL_DevOps_toolkit.psm1"
+RootModule = "ApexSQL_DevOps_toolkit.psm1"
 
 # Version number of this module.
 ModuleVersion = '2018.09.0058'
@@ -27,7 +27,7 @@ CompanyName = 'ApexSQL'
 Copyright = '(c) 2019 ApexSQL LLC. All rights reserved.'
 
 # Description of the functionality provided by this module
-# Description = ''
+Description = 'The ApexSQL DevOps toolkit is a set of components and scripts that integrate with ApexSQL SQL developer tools to create SQL Server database continuous integration and delivery automation pipelines. The PowerShell functions provide SQL Server DevOps capability to any Windows environment.'
 
 # Minimum version of the Windows PowerShell engine required by this module
 PowerShellVersion = '5.0'
