@@ -23,8 +23,8 @@ Initialize-Globals -CurrentDirectory "$(Split-Path -parent $PSCommandPath)"
 
 #Nuget package settings
 $global:nugetId = "packageID"
-$global:nugetAuthors = "ApexSQL LLC"
-$global:nugetOwners = "ApexSQL LLC"
+$global:nugetAuthors = "Quest Software Inc"
+$global:nugetOwners = "Quest Software Inc"
 $global:pushSource = "https://some.nuget.feed.url.com"
 $global:apiKeyFile = "ApiKey_file"
 $global:nugetExePath = "C:\nuget.exe"
@@ -53,6 +53,9 @@ $dsQA = New-ApexSqlDatabaseConnection -ConnectionName "qaDB_dest" -Server "serve
 
 #Notification step
 #Invoke-ApexSqlNotifyStep -Options $options -DistributionList "user@example.com" -Status started
+
+#Compare step
+#Invoke-ApexSQLCompareStep -Options $options -Source $dsSC -Target $dsQA -Verbose
 
 #Build step
 Invoke-ApexSqlBuildStep -Options $options -Source $dsSC -Database $dsQA -Verbose | Out-Null

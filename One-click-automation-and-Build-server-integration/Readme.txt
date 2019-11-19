@@ -1,6 +1,31 @@
 Release notes: this document describes changes and enhancements made to ApexSQL DevOps toolkit PowerShell module
 
 --------------------------------------------------------------------------------------------------
+Release: 	2019.04.0191
+Date: 		November 18, 2019
+--------------------------------------------------------------------------------------------------
+
+Enhancements:
+
+- Compare production database with source control
+- Validate schema changes
+- Format and obfuscate SQL code
+- Find and mask sensitive data
+
+Fixes:
+
+- “Cannot validate argument on parameter 'Source_Type'. The argument "sf" does not belong to the set” error is encountered when executing the Build step and a script folder is used as a data source
+- “Cannot validate argument on parameter 'Source_Type'. The argument "sf" does not belong to the set” error is encountered when executing the Sync step and a script folder is used as a data source
+- “Login failed for user 'username'“error is encountered when executing the Build step and SQL Server authentication method is used for a target database connection
+- Additional parameters switch does not work when used with any step execution
+- Generated data synchronization script is saved in Windows user folder instead of in the pipeline working folder when the Data sync step is executed
+
+Changes:
+
+- ApexSQL continuous integration example script is updated with the Compare step configuration template 
+- ApexSQL continuous delivery example script is updated with the Mask step configuration template
+
+--------------------------------------------------------------------------------------------------
 Release: 	2018.09.0058
 Date: 		January 15, 2019
 --------------------------------------------------------------------------------------------------

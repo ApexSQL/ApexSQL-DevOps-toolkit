@@ -21,8 +21,8 @@ Read-Host -AsSecureString |ConvertFrom-SecureString |Out-File path_to_the_script
 Initialize-Globals -CurrentDirectory "$(Split-Path -parent $PSCommandPath)"
 #Nuget package settings
 $global:nugetId = "packageID"
-$global:nugetAuthors = "ApexSQL LLC"
-$global:nugetOwners = "ApexSQL LLC"
+$global:nugetAuthors = "Quest Software Inc"
+$global:nugetOwners = "Quest Software Inc"
 $global:pushSource = "https://some.nuget.feed.url.com"
 $global:apiKeyFile = "ApiKey_file"
 $global:nugetExePath = "C:\nuget.exe"
@@ -60,6 +60,9 @@ Invoke-ApexSqlDataSyncStep -Options $options -Source $stageDB -Target $productio
 
 #Deploy step
 Invoke-ApexSqlDeployStep -Options $options -DeployType Both -Database $productionDB -Verbose | Out-Null
+
+#Mask step
+#Invoke-ApexSqlMaskStep -Options $options -Database $dsQA -ProjectFile "Custom_ApexSQLMask_project.axma" -Verbose
 
 #Notification step
 Invoke-ApexSqlNotifyStep -Options $options -DistributionList "user@example.com" -Status completed -Verbose

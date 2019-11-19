@@ -1,4 +1,7 @@
-﻿#region Classes
+﻿#
+# © 2019 Quest Software Inc. ALL RIGHTS RESERVED.
+#
+#region Classes
 #[Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidGlobalVars", Scope="function", Target="*")]
 #[Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword", Scope="function", Target="*")]
 #[Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSShouldProcess", Scope="function", Target="*")]
@@ -93,7 +96,7 @@ function New-ApexSqlDatabaseConnection
     $connection.Database = $Database
     $connection.WindowsAuthentication = $WindowsAuthentication
     $connection.UserName = $U
-    $connection.Password = (&{If(!$WindowsAuthentication -and !$U) {Get-Pass -PasswordFile $PasswordFile} Else {$U}})
+    $connection.Password = (&{If(!$WindowsAuthentication -and !$U) {Get-Pass -PasswordFile $PasswordFile} Else {$P}})
     return $connection
 }
 
@@ -158,7 +161,7 @@ class ApexSqlSourceControlConnection : ApexSqlConnection
     }
 }
 
-function New-ApexSQLSource
+function New-ApexSqlSource
 {
     [CmdletBinding(SupportsShouldProcess)]
     param
@@ -167,7 +170,7 @@ function New-ApexSQLSource
         [string] $ConnectionName,
 
         [Parameter(Mandatory = $false)]
-        [ValidateSet("tfs","git","mercurial", "subversion", "perforce", "file", "nuget")]
+        [ValidateSet("tfs","git","mercurial", "subversion", "perforce", "file", "nuget", "sf")]
         [String] $Source_Type,
 
         [Parameter(Mandatory = $false)]
@@ -213,7 +216,7 @@ function New-ApexSQLSource
         [string] $Source
      )
 
-     if (!$P -and $Source_Type -ne "nuget")
+     if (!$P -and $Source_Type -ne "nuget" -and $Source_Type -ne "sf" -and $Source_Type -ne "file")
      {
         $P = Get-Pass -PasswordFile $PasswordFile
      }
@@ -709,29 +712,6 @@ function GetToolName
     }
 }
 
-function GetStepName
-{
-    param
-    (
-        [string] $Tool
-    )
-    switch ($Tool)
-    {
-        "Build" {return "Build"}
-        "Generate" {return "Populate"}
-        "Trigger" {return "Audit"}
-        "Enforce" {return "Review"}
-        "Unit Test" {return "Test"}
-        "Script" {return "Script"}
-        "Doc" {return "Document"}
-        "Diff" {return "Sync"}
-        "Data Diff" {return "Sync data"}
-        "Package" {return "Package"}
-        "Deploy" {return "Deploy"}
-        default {return}
-    }
-}
-
 function Get-Pass
 {
     param
@@ -830,6 +810,8 @@ function Start-ApexSQLTool
 		[Parameter(Mandatory = $true)]
 		[string] $ToolName,
 		[Parameter(Mandatory = $true)]
+		[string] $StepName,
+		[Parameter(Mandatory = $true)]
 		[string] $ToolParameters,
 		[Parameter(Mandatory = $true)]
 		[ApexSqlOptions] $Options,
@@ -881,7 +863,14 @@ function Start-ApexSQLTool
 	$output = Invoke-Expression -Command ("& `"$($toolLocation)`" $ToolParameters")
 	Out-File -FilePath $Options.OutputLogFile -InputObject $output -Append
 
-	if ($lastExitCode -ne 0 -and -not ($lastExitCode -eq 104 -and $ToolName -eq "Generate"))
+	if(($StepName -eq "Compare" -or $StepName -eq "Deploy") -and $ToolName -eq "Diff" -and $lastExitCode -ne 102){
+		$lastExitCode = 1
+	}
+    elseif(($StepName -eq "Compare" -or $StepName -eq "Deploy") -and $ToolName -eq "Diff" -and $lastExitCode -eq 102){
+        $lastExitCode = 0
+    }
+
+	if ($lastExitCode -ne 0 -and (-not ($lastExitCode -eq 104 -and $ToolName -eq "Generate")))
 	{
 		$Options.FailedSteps += @("ApexSQL $ToolName")
         $Options.ErrorCodes += @($lastExitCode)
@@ -890,10 +879,12 @@ function Start-ApexSQLTool
 			$errorText = "`r`nApexSQL $ToolName failed.`r`nThe process is canceled due to failure return code: $lastExitCode"
 			Out-File -FilePath $Options.OutputLogFile -InputObject $errorText -Append
 			$Options.Result = "Failure"
-            $stepName = GetStepName -Tool $ToolName
-            $msg = "$stepName step failed."
+            $msg = "$StepName step failed."
+            if($StepName -eq "Compare"){
+                $msg = "$StepName step failed  - Differences found"
+            }
             Write-Warning $msg
-            $global:ResultSet.Add($global:ResultSet.Count, @{Step=$stepName; Result='Failure'; ErrorCode=$lastExitCode;})
+            $global:ResultSet.Add($global:ResultSet.Count, @{Step=$StepName; Result='Failure'; ErrorCode=$lastExitCode;})
             return $false
 		}
 		else
@@ -910,11 +901,14 @@ function Start-ApexSQLTool
         if ($ToolName -ne "Script" -and $Silent -ne $true -and ($FromPackage -eq $true -and $ToolName -eq "Data Diff") -ne $true)
         {
 
-            $stepName = GetStepName -Tool $ToolName
-            $msg = "$stepName step passed."
+            $msg = "$StepName step passed."
+
+            if($StepName -eq "Compare"){
+                $msg = "$StepName step passed - Databases are equal"
+            }
             Write-Verbose $msg
             Out-File -FilePath $Options.OutputLogFile -InputObject "`r`n##### $($msg) #####`r`n" -Append
-            $global:ResultSet.Add($global:ResultSet.Count, @{Step=$stepName; Result='Success'; OutputFiles=(&{ if ($null -ne $OutputFiles) {"$($OutputFiles)"} Else {""}} )})
+            $global:ResultSet.Add($global:ResultSet.Count, @{Step=$StepName; Result='Success'; OutputFiles=(&{ if ($null -ne $OutputFiles) {"$($OutputFiles)"} Else {""}} )})
         }
     }
     return $true
@@ -1343,12 +1337,12 @@ function Set-AdditionalSwitch
     (
         [string] $Additional
     )
-    $additional = ""
+    $resultAdditional = ""
 	if ($Additional)
 	{
-        $additional = $Additional
+        $resultAdditional = $Additional
     }
-    return $additional
+    return $resultAdditional
 }
 
 function LogFail
@@ -1378,7 +1372,7 @@ function Invoke-ApexSqlBuildStep
 
 		[Parameter(Mandatory = $false)]
         [ValidateScript({
-            if (($_.GetType() -ne [ApexSqlSourceControlConnection]) -and ($_.GetType() -ne [ApexSqlFileConnection]))
+            if (($_.GetType() -ne [ApexSqlSourceControlConnection]) -and ($_.GetType() -ne [ApexSqlFileConnection]) -and ($_.GetType() -ne [ApexSqlSFConnection]))
             {
                 Throw "Only source control or file connection can be used as a source"
             }
@@ -1454,6 +1448,11 @@ function Invoke-ApexSqlBuildStep
         {
             $sourceType = "sql"
             $sourceParams = "/source_name:""$($Source.FilePath)"""
+        }  
+		elseif ($Source.GetType() -eq [ApexSqlSFConnection])
+        {
+            $sourceType = "sf"
+            $sourceParams = "/source_name:""$($Source.FolderPath)"""
         }
 	    else
 	    {
@@ -1479,6 +1478,7 @@ function Invoke-ApexSqlBuildStep
 	    " $additional $static_data  /drop_if_exists /script_permissions /v /f"
 	$params = @{
 		ToolName = "Build"
+		StepName = "Build"
 		ToolParameters = $toolParameters
 		Options = $Options
 		StopOnFail = $StopOnFail
@@ -1555,6 +1555,7 @@ function Invoke-ApexSqlPopulateStep
 	$toolParameters = "$($db) $($rows) $fillEmpty $project $additional /v /f "
 	$params = @{
 		ToolName = "Generate"
+		StepName = "Populate"
 		ToolParameters = $toolParameters
 		Options = $Options
 		StopOnFail = $StopOnFail
@@ -1650,6 +1651,7 @@ function Invoke-ApexSqlAuditStep
     $toolParameters = "$($db) $project $additional /at $($eat) $($et) $outReport /v /f"
     $params = @{
         ToolName = "Trigger"
+		StepName = "Audit"
         ToolParameters = $toolParameters
         Options = $Options
         StopOnFail = $StopOnFail
@@ -1741,6 +1743,7 @@ function Invoke-ApexSqlReviewStep
 	$toolParameters = " $($Database.AsParameters()) $project $($additional) $($outReport) $($reportContents) /v /f"
 	$params = @{
 		ToolName = "Enforce"
+		StepName = "Review"
 		ToolParameters = $toolParameters
 		Options = $Options
 		StopOnFail = $StopOnFail
@@ -1810,6 +1813,7 @@ function Invoke-ApexSqlTestStep
     $toolParameters = "$($Database.AsParameters()) $outReport $sqlCop $project $additional /install_tsqlt /v /f"
 	$params = @{
 		ToolName = "Unit Test"
+		StepName = "Test"
 		ToolParameters = $toolParameters
 		Options = $Options
 		StopOnFail = $StopOnFail
@@ -1860,6 +1864,7 @@ function Invoke-ApexSqlScriptStep
 	$toolParameters = " $($Database.AsParameters()) /fl:""$($scriptFolder)"" /exc:16384:SQLCop:tSQLt /exc:134217728:tSQLtCLR /eso /in /v /f"
 	$params = @{
 		ToolName = "Script"
+		StepName = "Script"
 		ToolParameters = $toolParameters
 		Options = $Options
 		StopOnFail = $StopOnFail
@@ -1882,6 +1887,7 @@ function Invoke-ApexSqlScriptStep
         $toolParametersDataDiff = " $global:StaticDataSource_ForDataDiff /sf2:""$($scriptFolder)"" /o:8 /sync /f"
         $paramsDD = @{
 		    ToolName = "Data Diff"
+			StepName = "Script"
             ToolParameters = $toolParametersDataDiff
             Options = $Options
 		    StopOnFail = $StopOnFail
@@ -1936,6 +1942,10 @@ function Invoke-ApexSqlPackageStep
         [ApexSqlOptions] $Options,
         [Parameter(Mandatory = $false)]
         [switch] $Publish,
+        [Parameter(Mandatory = $false)]
+        [string] $Format,
+        [Parameter(Mandatory = $false)]
+        [switch] $Obfuscate,
         [string]$nugetVersion = "",
         [string]$nugetId = $global:nugetId,
         [string]$nugetAuthors = $global:nugetAuthors,
@@ -1949,7 +1959,10 @@ function Invoke-ApexSqlPackageStep
         [switch]$DoNotRemoveContents,
         [switch]$Consolidate,
         [Parameter(Mandatory = $false)]
-        [ApexSqlDatabaseConnection] $Database
+        [ApexSqlDatabaseConnection] $Database,
+        
+        [Parameter(Mandatory = $false)]
+        [bool] $StopOnFail = $true
 	)
 
     if ($Options.Result -eq "Failure")
@@ -1965,16 +1978,75 @@ function Invoke-ApexSqlPackageStep
             return
         }
     }
-
     $info = "`r`n`r`n=============================`r`n" +
                     "----- Started Packaging -----`r`n" +
                     "-----------------------------`r`n"
 	Out-File -FilePath $Options.OutputLogFile -InputObject $info -Append
 
+    if(($Format -ne "" -and $null -ne $Format) -and $Obfuscate){        
+        $global:SkippingList += "`tPackage`r`n"
+        LogFail -FilePath $Options.OutputLogFile -ErrorText "Cannot use -Format option with -Obfuscate"
+        if ($PSCmdlet.MyInvocation.ExpectingInput)
+        {
+            return $Options
+        }
+        else
+        {
+            return
+        }
+    }
+
     #Script out temp. db to script folder (including static data)
     if ($null -ne $Database)
     {
         Invoke-ApexSqlScriptStep -Options $options -Database $Database | Out-Null
+
+		
+	
+
+		if(($Format -ne "" -and $null -ne $Format) -or ($Obfuscate))
+		{
+			try{
+				$toolParameters = ""
+				if($Format -ne "" -and $null -ne $Format){
+					$toolParameters = " /frs  /pf:$Format /is:""$($Options.OutputLocation)"" /f"
+                
+				}
+				if($Obfuscate)
+				{
+					$toolParameters = " /obf  /is:""$($Options.OutputLocation)"" /f"
+				}
+				$params = @{
+					ToolName = "Refactor"
+					StepName = "Package"
+					ToolParameters = $toolParameters
+					Options = $Options
+					StopOnFail = $StopOnFail
+					OutputFiles = if ($OutputFiles.Length -gt 0) {$OutputFiles} else {$null}
+				}
+				Start-ApexSQLTool @params
+			}
+			catch
+			{
+				$Options.FailedSteps += @("ApexSQL Refactor")
+				$Options.ErrorCodes += @($lastExitCode)
+				if ($StopOnFail)
+				{
+					$stepName = "Package"
+					$Options.Result = "Failure"
+					$msg = "$stepName step failed."
+					Write-Warning $msg
+					LogFail -FilePath $Options.OutputLogFile -ErrorText "`r`nApexSQL $ToolName failed.`r`nThe process is canceled due to failure return code: $lastExitCode"
+					return $false
+				}
+				else
+				{
+					$Options.Result = "Completed with errors"
+				}
+    
+				Out-File -FilePath $Options.OutputLogFile -InputObject $_.Message -Append
+			}
+		}
     }
 
     $ErrorActionPreference = "Stop"
@@ -2252,6 +2324,7 @@ function Invoke-ApexSqlDocumentStep
 	" /on:$reportName $project $additional $sourceSwitches   /v /f"
 	$params = @{
 		ToolName = "Doc"
+		StepName = "Document"
 		ToolParameters = $toolParameters
 		Options = $Options
 		StopOnFail = $StopOnFail
@@ -2318,19 +2391,19 @@ function Invoke-ApexSqlSchemaSyncStep
     $dstDefined = (&{ if ($Target) {$true} Else {$false}} )
 
     #Check if source is .nupkg
-    $sourceParameters = ""
+	$SFPath = ""
     if (!$SourceFromPipeline)
     {
         if ($Source.NugetID)
         {
             if (-not ($Source.Version.Length -gt 0))
-                    {
-            ExtractNupkg -OutputLocation $Options.OutputLocation -NugetID $Source.NugetID -Source $Source.Source
-        }
+            {
+                ExtractNupkg -OutputLocation $Options.OutputLocation -NugetID $Source.NugetID -Source $Source.Source
+            }
             else
-                    {
-            ExtractNupkg -OutputLocation $Options.OutputLocation -NugetID $Source.NugetID -Version $Source.Version -Source $Source.Source
-        }
+            {
+                ExtractNupkg -OutputLocation $Options.OutputLocation -NugetID $Source.NugetID -Version $Source.Version -Source $Source.Source
+            }
 
 
             $dir = Get-ChildItem $Options.OutputLocation | Where-Object{ $_.PSIsContainer } | Sort-Object LastWriteTime | Select-Object -last 1 | Select-Object -ExpandProperty FullName
@@ -2345,18 +2418,20 @@ function Invoke-ApexSqlSchemaSyncStep
             $sourceParameters = " /sf1:""$($SFPath)"" "
             $global:nugetDatabaseScriptsSource = $sourceParameters
         }
-        else
+		elseif ($Source.GetType() -eq [ApexSqlSFConnection])
         {
-            if ($srcDefined)
-            {
-                $sourceParameters = "$($Source.AsParameters("diff1"))"
-            }
+            $sourceParameters = "/script_folder1:""$($Source.FolderPath)"""
         }
+		else{
+			$sourceParameters = "$($Source.AsParameters("diff1"))"
+		}
     }
     else
     {
         $sourceParameters = " /sf1:""$($Options.OutputLocation)\DatabaseScripts"" "
     }
+
+
 
 
     if ($dstDefined)
@@ -2368,10 +2443,12 @@ function Invoke-ApexSqlSchemaSyncStep
         $targetParameters = ""
     }
 
+
     #Full tool parameters for silent execution
-    $toolParameters = "$($sourceParameters) /sn2:""$($Options.OutputLocation)\Db_SnapShot.axsnp"" /export /v /f"
+    $toolParameters = "$($sourceParameters) /sn2:""$($Options.OutputLocation)\Db_SnapShot.axsnp"" /export /v /f /rece"
 	$params = @{
 		ToolName = "Diff"
+		StepName = "SchemaSync"
 		ToolParameters = $toolParameters
 		Options = $Options
 		StopOnFail = $StopOnFail
@@ -2400,9 +2477,10 @@ function Invoke-ApexSqlSchemaSyncStep
     #endregion
 
     #Full tool parameters
-    $toolParameters = "$($sourceParameters) $($targetParameters) $report $script $project $additional /dsn:""$($Options.OutputLocation)\Db_SnapShot_Diff.axdsn"" /v /f"
+    $toolParameters = "$($sourceParameters) $($targetParameters) $report $script $project $additional /dsn:""$($Options.OutputLocation)\Db_SnapShot_Diff.axdsn"" /v /f /rece"
 	$params = @{
 		ToolName = "Diff"
+		StepName = "SchemaSync"
 		ToolParameters = $toolParameters
 		Options = $Options
 		StopOnFail = $StopOnFail
@@ -2411,6 +2489,73 @@ function Invoke-ApexSqlSchemaSyncStep
 
     #Execute the tool
 	Start-ApexSQLTool @params
+	
+	
+
+	#Scripting source
+    $canRunScript = $false
+	if (!$SourceFromPipeline)
+    {
+        #script source
+        $sourceScriptPath = "$($Options.OutputLocation)\SchemaSync_source_scripts";
+		if(!(Test-Path $sourceScriptPath)) {
+			New-Item -ItemType Directory -Force -Path $sourceScriptPath
+		}
+
+        if ($Source.NugetID)
+        {
+			Copy-Item -Force -Recurse -Verbose "$SFPath\*" -Destination $sourceScriptPath
+        }
+		elseif ($Source.GetType() -eq [ApexSqlSFConnection])
+        {
+			Copy-Item -Force -Recurse -Verbose "$($Source.FolderPath)\*" -Destination $sourceScriptPath
+        }
+        elseif ($Source.GetType() -eq [ApexSqlSourceControlConnection])
+        {
+			$canRunScript = $true
+			$toolScriptParameters = "$sourceParameters /script_folder2:$sourceScriptPath /synchronize /v /f"
+        }
+        elseif ($Source.GetType() -eq [ApexSqlDatabaseConnection])
+        {
+			$canRunScript = $true
+			$sourceScriptParameters = $Source.AsParameters()
+			$toolScriptParameters = "$sourceScriptParameters /exc:16384:SQLCop:tSQLt /exc:134217728:tSQLtCLR /eso /in /fl:""$sourceScriptPath"" /v /f"
+        } 
+
+		if ($srcDefined -and $canRunScript -and $toolScriptParameters -ne "")
+		{
+			$params = @{
+				ToolName = "Script"
+				StepName = "SchemaSync"
+				ToolParameters = $toolScriptParameters
+				Options = $Options
+				StopOnFail = $true
+				OutputFiles = if ($OutputFiles.Length -gt 0) {$OutputFiles} else {$null}
+			}
+			Start-ApexSQLTool @params
+		}
+    }
+
+	#Scripting target
+    if ($dstDefined)
+    {
+        $targetScriptPath = "$($Options.OutputLocation)\SchemaSync_target_scripts";
+
+        if(!(Test-Path $targetScriptPath)) {
+            New-Item -ItemType Directory -Force -Path $targetScriptPath
+        }
+
+        $toolParameters = "$($Target.AsParameters()) /exc:16384:SQLCop:tSQLt /exc:134217728:tSQLtCLR /eso /in /fl:""$targetScriptPath"" /v /f"
+        $params = @{
+            ToolName = "Script"
+			StepName = "SchemaSync"
+            ToolParameters = $toolParameters
+            Options = $Options
+            StopOnFail = $true
+            OutputFiles = if ($OutputFiles.Length -gt 0) {$OutputFiles} else {$null}
+        }
+        Start-ApexSQLTool @params
+    }
 
     if ($PSCmdlet.MyInvocation.ExpectingInput)
     {
@@ -2460,8 +2605,8 @@ function Invoke-ApexSqlDataSyncStep
     $additional = Set-AdditionalSwitch -Additional $AdditionalOptions
 
     #Output files names
-    $dataSyncScript  = "DataSync.sql"
-    $dataSyncReport  = "DataReport.html"
+    $dataSyncScript  = "$($Options.OutputLocation)\DataSync.sql"
+    $dataSyncReport  = "$($Options.OutputLocation)\DataReport.html"
 
     $sourceParameters = ""
     if (!$SourceFromPipeline)
@@ -2519,6 +2664,7 @@ function Invoke-ApexSqlDataSyncStep
     $toolParameters = "$($sourceParameters) $($Target.AsParameters("diff2")) $report $script $project$additional /v /f"
 	$params = @{
 		ToolName = "Data Diff"
+		StepName = "DataSync"
 		ToolParameters = $toolParameters
 		Options = $Options
 		StopOnFail = $StopOnFail
@@ -2550,6 +2696,12 @@ function Invoke-ApexSqlDeployStep
 
         [Parameter(Mandatory = $false)]
         [switch] $UseCurrentPackage,
+		
+        [Parameter(Mandatory = $false)]
+        [switch] $PreDeployment,
+
+        [Parameter(Mandatory = $false)]
+        [switch] $PostDeployment,
 
         [Parameter(Mandatory = $true)]
         [ApexSqlDatabaseConnection[]] $Databases
@@ -2584,14 +2736,17 @@ function Invoke-ApexSqlDeployStep
         }
         else
         {
-            if ($null -ne $Source.Version)
-            {
-                ExtractNupkg -NugetID $Source.NugetID -Source $Source.Source -OutputLocation $Options.OutputLocation
-            }
-            else
-            {
-                ExtractNupkg -NugetID $Source.NugetID -Source $Source.Source -Version $Source.Version -OutputLocation $Options.OutputLocation
-            }
+			if($null -ne $Source)
+			{
+				if ($null -ne $Source.Version)
+				{
+					ExtractNupkg -NugetID $Source.NugetID -Source $Source.Source -OutputLocation $Options.OutputLocation
+				}
+				else
+				{
+					ExtractNupkg -NugetID $Source.NugetID -Source $Source.Source -Version $Source.Version -OutputLocation $Options.OutputLocation
+				}
+			}
 
         }
 
@@ -2629,6 +2784,12 @@ function Invoke-ApexSqlDeployStep
 
         foreach ($database in $Databases)
         {
+            if($PreDeployment){
+				if(!(New-DeploymentValidation -ExecutionFolder $Options.OutputLocation -ScriptName "SchemaSync_target_scripts" -HtmlReportName "PreValidationReport.html" -Database $database -StepName "Deploy")){
+					return
+				}
+            }
+        
             if ($database.WindowsAuthentication)
             {
                 $credentials = " -E"
@@ -2666,6 +2827,12 @@ function Invoke-ApexSqlDeployStep
                 }
             }
         }
+		      
+		if($PostDeployment){
+			if(!(New-DeploymentValidation -ExecutionFolder $Options.OutputLocation -ScriptName "SchemaSync_source_scripts" -HtmlReportName "PostValidationReport.html" -Database $database -StepName "Deploy")){
+				return
+			}
+		}
 
         #Write step result
         $stepName = "Deploy"
@@ -2693,9 +2860,230 @@ function Invoke-ApexSqlDeployStep
 
         Out-File -FilePath $Options.OutputLogFile -InputObject $_.Message -Append
     }
+      
     if ($PSCmdlet.MyInvocation.ExpectingInput)
     {
         return $Options
     }
 
+}
+
+
+
+function Invoke-ApexSqlMaskStep
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [ApexSqlOptions] $Options,
+
+        [Parameter(Mandatory = $true)]
+        [ApexSqlConnection] $Database,
+
+        [Parameter(Mandatory = $true)]
+        [string] $ProjectFile,
+        
+        [Parameter(Mandatory = $false)]
+        [string] $AdditionalOptions,
+        
+        [Parameter(Mandatory = $false)]
+        [switch] $UseCurrentPackage,
+        
+        [Parameter(Mandatory = $false)]
+        [bool] $StopOnFail = $true
+    )
+    if ($Options.Result -eq "Failure")
+    {
+        $global:SkippingList += "`tMask`r`n"
+        LogFail -FilePath $Options.OutputLogFile -ErrorText "Skipping ApexSQL Mask step due to failure in the pipeline"
+        if ($PSCmdlet.MyInvocation.ExpectingInput)
+        {
+            return $Options
+        }
+        else
+        {
+            return
+        }
+    }
+
+    Out-File -FilePath $Options.OutputLogFile -InputObject $info -Append
+
+    try
+    {
+        if ($UseCurrentPackage)
+        {
+            ExtractNupkg -NugetID $global:nugetId -Source $Options.OutputLocation -OutputLocation "$($Options.OutputLocation)\"
+
+        }
+        else
+        {
+            if ($null -ne $Source.Version)
+            {
+                ExtractNupkg -NugetID $Source.NugetID -Source $Source.Source -OutputLocation $Options.OutputLocation
+            }
+            else
+            {
+                ExtractNupkg -NugetID $Source.NugetID -Source $Source.Source -Version $Source.Version -OutputLocation $Options.OutputLocation
+            }
+
+        }
+
+        $project = Set-ProjectSwitch -Options $Options -ProjectFile $ProjectFile
+        $additional = Set-AdditionalSwitch -Additional $AdditionalOptions
+
+        #Full tool parameters
+        $toolParameters = "$($Database.AsParameters()) $project $additional /v /f"
+        $params = @{
+            ToolName = "Mask"
+            StepName = "Mask"
+            ToolParameters = $toolParameters
+            Options = $Options
+            StopOnFail = $StopOnFail
+            OutputFiles = if ($OutputFiles.Length -gt 0) {$OutputFiles} else {$null}
+        }
+
+    }
+    catch
+    {
+        $Options.FailedSteps += @("ApexSQL Mask")
+        $Options.ErrorCodes += @($lastExitCode)
+        if ($StopOnFail)
+        {
+            $stepName = "Mask"
+            $Options.Result = "Failure"
+            $msg = "$stepName step failed."
+            Write-Warning $msg
+            LogFail -FilePath $Options.OutputLogFile -ErrorText "`r`nApexSQL $ToolName failed.`r`nThe process is canceled due to failure return code: $lastExitCode"
+            return $false
+        }
+        else
+        {
+            $Options.Result = "Completed with errors"
+        }
+
+        Out-File -FilePath $Options.OutputLogFile -InputObject $_.Message -Append
+    }
+    #Execute the tool
+    Start-ApexSQLTool @params
+    if ($PSCmdlet.MyInvocation.ExpectingInput)
+    {
+        return $Options
+    }
+}
+
+function Invoke-ApexSqlCompareStep
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [ApexSqlOptions] $Options,
+
+        [Parameter(Mandatory = $true)]
+        [ApexSqlConnection] $Source,
+
+        [Parameter(Mandatory = $true)]
+        [ApexSqlConnection] $Target,
+        
+        [Parameter(Mandatory = $false)]
+        [bool] $StopOnFail = $true
+    )
+    if ($Options.Result -eq "Failure")
+    {
+        $global:SkippingList += "`tCompare`r`n"
+        LogFail -FilePath $Options.OutputLogFile -ErrorText "Skipping ApexSQL Compare step due to failure in the pipeline"
+        if ($PSCmdlet.MyInvocation.ExpectingInput)
+        {
+            return $Options
+        }
+        else
+        {
+            return
+        }
+    }
+
+    Out-File -FilePath $Options.OutputLogFile -InputObject $info -Append
+
+    try
+    {
+        $summaryFile = "$($Options.OutputLocation)\CompareSummary.txt";
+        $reportFile = "$($Options.OutputLocation)\CompareStep_summary.html";
+
+        #Full tool parameters
+        $toolParameters = "$($Source.AsParameters("diff1")) $($Target.AsParameters("diff2"))  /ot:html /on:""$reportFile"" /cso:""$summaryFile"" /v /f /rece"
+        $params = @{
+            ToolName = "Diff"
+			StepName = "Compare"
+            ToolParameters = $toolParameters
+            Options = $Options
+            StopOnFail = $StopOnFail
+            OutputFiles = if ($OutputFiles.Length -gt 0) {$OutputFiles} else {$null}
+        }
+
+    }
+    catch
+    {
+        $Options.FailedSteps += @("ApexSQL Compare")
+        $Options.ErrorCodes += @($lastExitCode)
+        if ($StopOnFail)
+        {
+            $stepName = "Compare"
+            $Options.Result = "Failure"
+            $msg = "$stepName step failed  - Differences found"
+            Write-Warning $msg
+            LogFail -FilePath $Options.OutputLogFile -ErrorText "`r`nApexSQL $ToolName failed.`r`nThe process is canceled due to failure return code: $lastExitCode"
+            return $false
+        }
+        else
+        {
+            $Options.Result = "Completed with errors"
+        }
+
+        Out-File -FilePath $Options.OutputLogFile -InputObject $_.Message -Append
+    }
+    #Execute the tool
+    Start-ApexSQLTool @params
+    if ($PSCmdlet.MyInvocation.ExpectingInput)
+    {
+        return $Options
+    }
+}
+
+function New-DeploymentValidation{
+    [CmdletBinding(SupportsShouldProcess)]
+    param
+    (
+        [Parameter(Mandatory = $true)]
+	    [string] $ExecutionFolder,
+
+        [Parameter(Mandatory = $true)]
+	    [string] $ScriptName,
+
+        [Parameter(Mandatory = $true)]
+        [string] $HtmlReportName,
+
+        [Parameter(Mandatory = $true)]
+        [ApexSqlConnection] $Database,
+
+        [Parameter(Mandatory = $true)]
+	    [string] $StepName
+    )
+
+    $targetScriptPath = "$ExecutionFolder\$ScriptName"
+
+    $xmlReport = "$ExecutionFolder\ValidationReport.xml"
+    $htmlReport = "$ExecutionFolder\$HtmlReportName"
+    
+
+    $toolParameters = " /sf1:""$targetScriptPath""  $($Database.AsParameters("diff2"))  /ot:xml /on:""$xmlReport"" /ot2:html /on2:""$htmlReport""  /v /f /rece"
+    $params = @{
+        ToolName = "Diff"
+		StepName = $StepName
+        ToolParameters = $toolParameters
+        Options = $Options
+        StopOnFail = $true
+        OutputFiles = if ($OutputFiles.Length -gt 0) {$OutputFiles} else {$null}
+    }
+    return Start-ApexSQLTool @params
 }
