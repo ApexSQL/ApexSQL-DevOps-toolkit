@@ -2,7 +2,7 @@ Release notes: this document describes changes and enhancements made to ApexSQL 
 
 --------------------------------------------------------------------------------------------------
 Release: 	2019.04.0191
-Date: 		November 18, 2019
+Date: 		November 19, 2019
 --------------------------------------------------------------------------------------------------
 
 Enhancements:
