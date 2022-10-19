@@ -883,7 +883,7 @@ function Start-ApexSQLTool
             if($StepName -eq "Compare"){
                 $msg = "$StepName step failed  - Differences found"
             }
-            Write-Warning $msg
+            Write-Warning $msg 
             $global:ResultSet.Add($global:ResultSet.Count, @{Step=$StepName; Result='Failure'; ErrorCode=$lastExitCode;})
             return $false
 		}
