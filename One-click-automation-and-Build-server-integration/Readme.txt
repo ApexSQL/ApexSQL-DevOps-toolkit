@@ -186,4 +186,4 @@ Features:
 - Archive all output files in a central folder
 - Audit sensitive tables with DML triggers
 - Customizable data sources
-- Support for advanced configuration through individual step project files  
+- Support for advanced configuration through individual step project files   
