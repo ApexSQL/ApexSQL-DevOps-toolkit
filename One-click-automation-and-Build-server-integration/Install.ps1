@@ -78,4 +78,4 @@ catch
 	Write-Host "Error during installation"
 	Write-Host $_.Message
 }
-pause 
+pause
